@@ -1,3 +1,8 @@
 .env
+.cache
+2023
 AirflowPipeline.png
 CoreApplication.png
+extracted_contents
+Dockerfile
+airflow_errors.log

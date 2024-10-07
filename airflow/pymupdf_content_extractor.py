@@ -26,15 +26,21 @@ if os.getenv('APP_ENV', "development") == "development":
     logger.addHandler(handler)
 
 # Also log to a file
-file_handler = logging.FileHandler(os.getenv('LOG_FILE', 'airflow_errors.log'))
+file_handler = logging.FileHandler(os.getenv('PYMUPDF_EXTRACT_LOG_FILE', 'content_extractor_pymupdf.log'))
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler) 
 
 # ============================= Logger : End ===============================
 
 
-def pdf_downloader(access_token, repository_id, repository_type, hf_directory_path) -> bool:
+def pdf_downloader() -> bool:
     '''Download PDF files from a HuggingFace repository and save them locally in respective directories'''
+
+    # Set the parameters 
+    access_token        = os.getenv("HUGGINGFACE_TOKEN", None)
+    repository_id       = os.getenv("REPO_ID", None)
+    repository_type     = os.getenv("REPO_TYPE", None)
+    hf_directory_path   = os.getenv("DIRECTORY_PATH", None)
 
     logger.info("AIRFLOW - pdf_downloader() - Request to download PDF files received")
     status = False
@@ -325,14 +331,8 @@ def extract_metadata():
 
 def main():
 
-    # Set the parameters 
-    access_token        = os.getenv("HUGGINGFACE_TOKEN", None)
-    repository_id       = os.getenv("REPO_ID", None)
-    repository_type     = os.getenv("REPO_TYPE", None)
-    hf_directory_path   = os.getenv("DIRECTORY_PATH", None)
-
     # Download the PDF files
-    download_status = pdf_downloader(access_token, repository_id, repository_type, hf_directory_path)
+    download_status = pdf_downloader()
 
     if download_status:
         extract_content_pymupdf()

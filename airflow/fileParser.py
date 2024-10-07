@@ -101,21 +101,13 @@ def main():
     # Load Environment variables
     load_dotenv()
 
-    #gaia-benchmark2
     bucket_name = os.getenv("BUCKET_NAME")
-    #files/test/metadata.jsonl
     test_blob_name = os.getenv("GCP_FILES_PATH") + os.getenv("TEST_FILE_PATH") + os.getenv("METADATA_FILENAME")
-    #files/validation/metadata.jsonl
     validation_blob_name = os.getenv("GCP_FILES_PATH") + os.getenv("VALIDATION_FILE_PATH") + os.getenv("METADATA_FILENAME")
-    # test_metadata.jsonl
     test_json_path = os.getenv("TEST_METADATA_FILENAME") 
-    # validation_metadata.jsonl
     validation_json_path = os.getenv("VALIDATION_METADATA_FILENAME")
-    #csv/files
     gcp_csv_filepath = os.getenv("GCP_CSV_PATH")
-    # test_parsed_metadata.csv
     test_csv_filename = os.getenv("TEST_CSV_FILENAME")
-    # validation_parsed_metadata.csv
     validation_csv_filename = os.getenv("VALIDATION_CSV_FILENAME")
     creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
 

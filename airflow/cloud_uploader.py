@@ -25,7 +25,7 @@ if os.getenv('APP_ENV', "development") == "development":
     logger.addHandler(handler)
 
 # Also log to a file
-file_handler = logging.FileHandler(os.getenv('LOG_FILE', 'airflow_errors.log'))
+file_handler = logging.FileHandler(os.getenv('PYMUPDF_UPLOAD_LOG_FILE', 'cloud_uploader_pymupdf.log'))
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler) 
 
@@ -141,25 +141,27 @@ def setup_tables() -> None:
             """,
             "create_pymupdf_page_info_table": """
                 CREATE TABLE pymupdf_page_info(
-                    page_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT,
+                    info_id INT PRIMARY KEY AUTO_INCREMENT,
+                    page_id INT NOT NULL,
+                    pdf_id INT NOT NULL,
                     text TEXT DEFAULT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES pymupdf_info(pdf_id)
+                    FOREIGN KEY (pdf_id) REFERENCES pymupdf_info(pdf_id),
+                    INDEX (page_id)
                 );
             """,
             "create_pymupdf_attachment_table": """
                 CREATE TABLE pymupdf_attachments(
                     attachment_id INT PRIMARY KEY AUTO_INCREMENT,
-                    attachment_type VARCHAR(255) NOT NULL,
+                    attachment_name VARCHAR(255) NOT NULL,
                     attachment_url TEXT NOT NULL
                 );
             """,
             "create_pymupdf_attachment_mapping_table": """
                 CREATE TABLE pymupdf_attachment_mapping(
                     mapping_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT,
-                    page_id INT,
-                    attachment_id INT,
+                    pdf_id INT NOT NULL,
+                    page_id INT NOT NULL,
+                    attachment_id INT NOT NULL,
                     FOREIGN KEY (pdf_id) REFERENCES pymupdf_info(pdf_id),
                     FOREIGN KEY (page_id) REFERENCES pymupdf_page_info(page_id),
                     FOREIGN KEY (attachment_id) REFERENCES pymupdf_attachments(attachment_id)
@@ -182,25 +184,27 @@ def setup_tables() -> None:
             """,
             "create_adobe_page_info_table": """
                 CREATE TABLE adobe_page_info(
-                    page_id INT PRIMARY KEY AUTO_INCREMENT,
+                    info_id INT PRIMARY KEY AUTO_INCREMENT,
+                    page_id INT NOT NULL,
                     text TEXT DEFAULT NULL,
-                    pdf_id INT,
-                    FOREIGN KEY (pdf_id) REFERENCES adobe_info(pdf_id)
+                    pdf_id INT NOT NULL,
+                    FOREIGN KEY (pdf_id) REFERENCES adobe_info(pdf_id),
+                    INDEX (page_id)
                 );
             """,
             "create_adobe_attachment_table": """
                 CREATE TABLE adobe_attachments(
                     attachment_id INT PRIMARY KEY AUTO_INCREMENT,
-                    attachment_type VARCHAR(255) NOT NULL,
+                    attachment_name VARCHAR(255) NOT NULL,
                     attachment_url TEXT NOT NULL
                 );
             """,
             "create_adobe_attachment_mapping_table": """
                 CREATE TABLE adobe_attachment_mapping(
                     mapping_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT,
-                    page_id INT,
-                    attachment_id INT,
+                    pdf_id INT NOT NULL,
+                    page_id INT NOT NULL,
+                    attachment_id INT NOT NULL,
                     FOREIGN KEY (pdf_id) REFERENCES adobe_info(pdf_id),
                     FOREIGN KEY (page_id) REFERENCES adobe_page_info(page_id),
                     FOREIGN KEY (attachment_id) REFERENCES adobe_attachments(attachment_id)
@@ -223,25 +227,27 @@ def setup_tables() -> None:
             """,
             "create_azure_page_info_table": """
                 CREATE TABLE azure_page_info(
-                    page_id INT PRIMARY KEY AUTO_INCREMENT,
+                    info_id INT PRIMARY KEY AUTO_INCREMENT,
+                    page_id INT NOT NULL,
                     text TEXT DEFAULT NULL,
-                    pdf_id INT,
-                    FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id)
+                    pdf_id INT NOT NULL,
+                    FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id),
+                    INDEX (page_id)
                 );
             """,
             "create_azure_attachment_table": """
                 CREATE TABLE azure_attachments(
                     attachment_id INT PRIMARY KEY AUTO_INCREMENT,
-                    attachment_type VARCHAR(255) NOT NULL,
+                    attachment_name VARCHAR(255) NOT NULL,
                     attachment_url TEXT NOT NULL
                 );
             """,
             "create_azure_attachment_mapping_table": """
                 CREATE TABLE azure_attachment_mapping(
                     mapping_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT,
-                    page_id INT,
-                    attachment_id INT,
+                    pdf_id INT NOT NULL,
+                    page_id INT NOT NULL,
+                    attachment_id INT NOT NULL,
                     FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id),
                     FOREIGN KEY (page_id) REFERENCES azure_page_info(page_id),
                     FOREIGN KEY (attachment_id) REFERENCES azure_attachments(attachment_id)
@@ -280,6 +286,7 @@ def setup_tables() -> None:
                     logger.info(f"SQL - setup_tables() - Running query for {table_name}")
 
                     cursor.execute(query)
+                    conn.commit()
 
                     logger.info(f"SQL - setup_tables() - Query executed successfully for {table_name}")
     
@@ -329,7 +336,7 @@ def cloud_uploader_pymupdf() -> None:
                 # 'text' field in page_id.json, and upload them to the database
                 for directory in dir_list:
 
-                    ################## Load Metadata into the database ##################
+                    ################## Load Metadata into the database and GCP Bucket ##################
 
                     # Parse the metadata file, and feed it to the database
                     metadata_file_path = os.path.join(base_dir, directory, 'metadata.json')
@@ -345,17 +352,17 @@ def cloud_uploader_pymupdf() -> None:
                     logger.info(f"SQL - cloud_uploader_pymupdf() - Inserting metadata contents for file {directory}")
 
                     cursor.execute(insert_metadata_sql, (
-                            str(directory),
-                            metadata['title'] if metadata['title'] != '' else None,
-                            metadata['format'],
-                            metadata['creator'],
-                            metadata['author'] if metadata['author'] != '' else None,
-                            metadata['encryption'],
-                            metadata['number_of_pages'],
-                            metadata['number_of_words'],
-                            metadata['number_of_images'],
-                            metadata['number_of_tables']
-                        ))
+                        str(directory),
+                        metadata['title'] if metadata['title'] != '' else None,
+                        metadata['format'],
+                        metadata['creator'],
+                        metadata['author'] if metadata['author'] != '' else None,
+                        metadata['encryption'],
+                        metadata['number_of_pages'],
+                        metadata['number_of_words'],
+                        metadata['number_of_images'],
+                        metadata['number_of_tables']
+                    ))
 
                     conn.commit()
                     logger.info(f"SQL - cloud_uploader_pymupdf() - Metadata inserted for file {directory}")
@@ -372,6 +379,8 @@ def cloud_uploader_pymupdf() -> None:
                     except Exception as exception:
                         logger.error(f"GCP - cloud_uploader_pymupdf() - Error occured while uploading metadata file to GCS Bucket for file {directory}")
                         logger.error(exception)
+
+                    ################## Load JSON, Image, and CSV into the GCP Bucket ##################
 
                     # Directories to upload
                     directories = ['CSV', 'JSON', 'Image']
@@ -404,7 +413,7 @@ def cloud_uploader_pymupdf() -> None:
                         logger.error(exception)
 
 
-                    ################## Load page text into the database ##################
+                    ################## Load page content into the database ##################
 
                     # Fetch the pdf_id 
                     logger.info(f"SQL - cloud_uploader_pymupdf() - Fetching pdf_id from database for file {directory}")
@@ -424,7 +433,6 @@ def cloud_uploader_pymupdf() -> None:
                         logger.error(f"AIRFLOW - cloud_uploader_pymupdf() - Error fetching directory contents: {json_dir}")
                         logger.error(exception)
                         
-                    # Read the 'text' content in each json file, and save them to the database
                     if json_file_list is not None:
                         for jsonFile in json_file_list:
                             
@@ -433,20 +441,69 @@ def cloud_uploader_pymupdf() -> None:
                             
                             with open(page_file_path, 'r') as _file:
                                 page = json.load(_file)
-                                
+
+                            # Read the 'text' content in each json file, and save them to the database
                             insert_text_query= """
-                            INSERT INTO pymupdf_page_info (pdf_id, text)
-                            VALUES (%s, %s)
+                            INSERT INTO pymupdf_page_info (page_id, pdf_id, text)
+                            VALUES (%s, %s, %s)
                             """
 
                             logger.info(f"SQL - cloud_uploader_pymupdf() - Inserting text for pdf_id {pdf_id}")
                             cursor.execute(insert_text_query, (
+                                page['page_id'],
                                 pdf_id, 
                                 page['content']['text']
                             ))
 
                             conn.commit()
                             logger.info(f"SQL - cloud_uploader_pymupdf() - Inserted text for pdf_id {pdf_id}")
+
+                            # Read the 'table', 'image' content in each json file, link them in the attachments and mappings table
+                            items = ['table', 'image']
+
+                            for item in items:
+                                if len(page['content'][item]) > 0:
+                                    for file_name in page['content'][item]:
+
+                                        logger.info(f"SQL - cloud_uploader_pymupdf() - Inserting {item} record {file_name} for pdf_id {pdf_id}")
+                                        insert_attachment_query = """
+                                        INSERT INTO pymupdf_attachments (attachment_name, attachment_url)
+                                        VALUES (%s, %s)
+                                        """
+
+                                        storage_path = f"{os.getenv('BUCKET_NAME')}/{os.getenv('BUCKET_STORAGE_DIR')}/{directory}/"
+                                        storage_path += 'CSV' if item == 'table' else 'Image'
+                                        cursor.execute(insert_attachment_query, (
+                                            file_name, 
+                                            storage_path
+                                        ))
+
+                                        conn.commit()
+                                        logger.info(f"SQL - cloud_uploader_pymupdf() - Inserted {item} record {file_name} for pdf_id {pdf_id}")
+                                        
+                                        # Linking attachment, page, and pdf in the mappings table
+                                        
+                                        # Fetch the attachment_id for the recently inserted attachment
+                                        logger.info(f"SQL - cloud_uploader_pymupdf() - Fetching attachment_id for {file_name} for file {directory}")
+                                        cursor.execute(f"SELECT `attachment_id` FROM pymupdf_attachments ORDER BY `attachment_id` DESC LIMIT 1")
+                                        attachment_id = cursor.fetchone()[0]
+                                        logger.info(f"SQL - cloud_uploader_pymupdf() - Fetched attachment_id for {file_name} for file {directory}")
+                                        
+                                        # Insert the mapping into the mappings table
+                                        logger.info(f"SQL - cloud_uploader_pymupdf() - Inserting attachment_mapping for {file_name} for page_id {page['page_id']} for pdf_id {pdf_id}")
+                                        
+                                        insert_mappings_query = """
+                                        INSERT INTO pymupdf_attachment_mapping (pdf_id, page_id, attachment_id)
+                                        VALUES (%s, %s, %s)
+                                        """
+                                        cursor.execute(insert_mappings_query, (
+                                            pdf_id,
+                                            page['page_id'],
+                                            attachment_id
+                                        ))
+                                        
+                                        conn.commit()
+                                        logger.info(f"SQL - cloud_uploader_pymupdf() - Inserting attachment_mapping for {file_name} for page_id {page['page_id']} for pdf_id {pdf_id}")
 
             except Exception as exception:
                 logger.error("AIRFLOW - cloud_uploader_pymupdf() - Error occured while inserting data into database")

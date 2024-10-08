@@ -96,6 +96,7 @@ def setup_tables() -> None:
             "create_features_table": """
                 CREATE TABLE gaia_features(
                     task_id VARCHAR(255) PRIMARY KEY,
+                    dataset_type VARCHAR(255) NOT NULL,
                     question TEXT,
                     level INT,
                     final_answer VARCHAR(255),
@@ -514,10 +515,212 @@ def cloud_uploader_pymupdf() -> None:
                     conn.close()
                     logger.info("DATABASE - cloud_uploader_pymupdf() - Connection to the database was closed")
 
+def cloud_uploader_azure():
+    logger.info("Azure - cloud_uploader_azure() - Inside cloud_uploader_azure() function")
+    logger.info("Azure - cloud_uploader_azure() - Uploading file contents to the Database and files to GCS")
+
+    # Load environmental variables
+    creds_file_path = os.path.join(os.getcwd(), os.getenv("GCS_CREDENTIALS_PATH"))  
+    bucket_name = os.getenv("BUCKET_NAME")
+    azure_filepath = os.getenv("GCS_AZURE_FILEPATH")
+
+    try:
+        # Google Cloud Storage Client
+        creds = service_account.Credentials.from_service_account_file(creds_file_path)
+        client = storage.Client(credentials = creds)
+        bkt = client.bucket(bucket_name)
+        logger.info("Azure - cloud_uploader_azure() - GCS Client for Azure created successfully")
+
+        # Connecting to the Database
+        conn = create_connection()
+
+        # Path to extracted pdf content
+        dir_set = os.path.join(os.getcwd(), azure_filepath)
+        dir_set_list = os.listdir(dir_set)
+
+        for dir in dir_set_list:
+            dir_pdf = os.path.join(dir_set, dir)
+            dir_pdf_list = os.listdir(dir_pdf)
+
+            # List of pdfs from the dataset_type
+            for pdf in dir_pdf_list:          
+                dir_folder = os.path.join(dir_pdf, pdf)
+                dir_folder_list = os.listdir(dir_folder)
+                try:
+
+                    # Folders - ['Images', 'JSON', 'CSV']
+                    for folder in dir_folder_list:
+                        folder_dir = os.path.join(dir_folder, folder)
+                        file_list = os.listdir(folder_dir)
+                        gcs_file_path = os.path.join(azure_filepath, dir, pdf, folder) + '/'
+
+                        if file_list:
+                            # Files inside the Folders
+                            for file in file_list:
+                                logger.info(f"Azure - cloud_uploader_azure() - Uploading {file} file from {folder} folder and its contents to GCS")
+                                file_blob = os.path.join(gcs_file_path, file)
+                                blob = bkt.blob(file_blob)
+                                blob.upload_from_filename(file_blob)
+                        else:
+                            logger.info(f"Azure - cloud_uploader_azure() - Uploading empty {folder} folder to GCS")
+                            blob = bkt.blob(gcs_file_path)
+                            blob.upload_from_string('')
+                except Exception as e:
+                    logger.error(f"Azure - cloud_uploader_azure() - Error occured while uploading files to GCS")
+                    raise e
+    
+    except Exception as e:
+        logger.error("Azure - cloud_uploader_azure() - Error while executing cloud_uploader_azure() function")
+        raise e
+
+    finally:
+        conn.close()
+        logger.info("Azure - cloud_uploader_azure() - Connection to the database closed")
+        logger.info("Azure - cloud_uploader_azure() - Uploading content to database and GCS successful")
+
+def download_csv_from_gcs(bucket_name, blob_name, local_file_path, creds_file_path):
+    # Download CSV file from GCS
+    logger.info("SQL - download_csv_from_gcs() - In function to download CSV file from GCS")
+
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials = creds)
+    bkt = client.bucket(bucket_name)
+    blob = bkt.blob(blob_name)
+    blob.download_to_filename(local_file_path)
+    logger.info(f"SQL - download_csv_from_gcs() - Downloaded {blob_name} from GCS bucket {bucket_name} to {local_file_path}")
+
+def get_file_paths(bucket_name, creds_file_path, gcp_folder_path):
+    logger.info("SQL - get_file_paths() - Retrieving file paths from GCS")
+    # Retrieve file names from GCS bucket
+    storage_client = storage.Client.from_service_account_json(creds_file_path)
+    blobs = storage_client.list_blobs(bucket_name, prefix = gcp_folder_path)
+    file_path_dict = {os.path.basename(blob.name): f"/{bucket_name}/{blob.name}" for blob in blobs if blob.name.startswith(gcp_folder_path)}
+    return file_path_dict
+
+def format_csv_data(df, file_paths_dict, dataset_type):
+    logger.info("SQL - format_csv_data() - Formatting data inside CSV file")
+    formatted_data = []
+    formatted_metadata = []
+    
+    for index, row in df.iterrows():
+        file_name = None if ((pd.isna(row['file_name'])) or (row['file_name'] == '')) else row['file_name'].strip('"')
+        file_path = file_paths_dict.get(file_name)
+
+        formatted_row = {
+            'task_id': row["task_id"].strip('"'),
+            'dataset_type': dataset_type,
+            'question': row["Question"].strip('"'),
+            'level': int(row["Level"]),
+            'final_answer': row['Final answer'].strip('"'),
+            'file_name': file_name,
+            'file_path': file_path
+        }
+        formatted_data.append(formatted_row)
+
+        metadata_str = row['Annotator Metadata']
+        metadata = ast.literal_eval(metadata_str)
+
+        # Replace final_answer in steps with an empty string
+        if 'final_answer' in formatted_row:
+            final_answer = formatted_row['final_answer']
+            metadata['Steps'] = metadata['Steps'].replace(final_answer, '') 
+
+
+        formatted_metadata_row = {
+            'task_id': row['task_id'].strip('"'),
+            'steps' : metadata['Steps'],
+            'number_of_steps' : metadata['Number of steps'],
+            'time_taken' : metadata['How long did this take?'],
+            'tools' : metadata['Tools'],
+            'number_of_tools' : metadata['Number of tools']
+        }
+        formatted_metadata.append(formatted_metadata_row)
+    logger.info("SQL - format_csv_data() - Features and metadata formatting done")
+    return formatted_data, formatted_metadata
+
+def load_parsed_data_to_db():
+    logger.info("cInside load_parsed_data_to_db() function")
+    logger.info("SQL - load_parsed_data_to_db() - Uploading parsed test and validation file data into gaia_features, gaia_annotations table to the Database")
+
+    # Environment variables
+    bucket_name = os.getenv("BUCKET_NAME")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+    gcp_files_path = os.getenv("GCP_FILES_PATH")
+    test_files_path = os.getenv("TEST_FILE_PATH")
+    validation_files_path = os.getenv("VALIDATION_FILE_PATH")
+    test_blob_name = os.getenv("GCP_CSV_PATH") + os.getenv("TEST_CSV_FILENAME")
+    validation_blob_name = os.getenv("GCP_CSV_PATH") + os.getenv("VALIDATION_CSV_FILENAME")
+    local_test_csv_path = os.getenv("TEST_CSV_FILENAME")
+    local_validation_csv_path = os.getenv("VALIDATION_CSV_FILENAME")
+
+    try:
+        # Connecting to the Database
+        conn = create_connection()
+
+        test_folder_path = os.path.join(gcp_files_path, test_files_path)
+        test_file_paths_dict = get_file_paths(bucket_name, creds_file_path, test_folder_path)
+
+        validation_folder_path = os.path.join(gcp_files_path, validation_files_path)
+        validation_file_paths_dict = get_file_paths(bucket_name, creds_file_path, validation_folder_path)
+
+        # Download the CSV file from GCS
+        download_csv_from_gcs(bucket_name, test_blob_name, local_test_csv_path, creds_file_path)
+        download_csv_from_gcs(bucket_name, validation_blob_name, local_validation_csv_path, creds_file_path)
+
+        # Load CSV data into DataFrame
+        df_test = pd.read_csv(local_test_csv_path)
+        df_validation = pd.read_csv(local_validation_csv_path)
+
+        formatted_test_data, formatted_test_metadata = format_csv_data(df_test, test_file_paths_dict, dataset_type = "test")
+        formatted_validation_data, formatted_validation_metadata = format_csv_data(df_validation, validation_file_paths_dict, dataset_type = "validation")
+
+        insert_features_table_query = """
+        INSERT INTO gaia_features(task_id, dataset_type, question, level, final_answer, file_name, file_path)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        insert_annotations_table_query = """
+        INSERT INTO gaia_annotations(task_id, steps, number_of_steps, time_taken, tools, number_of_tools)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+
+        cursor = conn.cursor()
+
+        # for formatted_data in [formatted_test_data, formatted_validation_data]:
+        #     for item in formatted_data:
+
+        # Inserting test dataset into gaia_features 
+        for item in formatted_test_data:
+            cursor.execute(insert_features_table_query, (item['task_id'], item['dataset_type'], item['question'], item['level'], item['final_answer'], item['file_name'], item['file_path']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion of test dataset into gaia_features done\n")
+
+        # Inserting validation dataset into gaia_features 
+        for item in formatted_validation_data:
+            cursor.execute(insert_features_table_query, (item['task_id'], item['dataset_type'], item['question'], item['level'], item['final_answer'], item['file_name'], item['file_path']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion of validation dataset into gaia_features done\n")
+
+        # Inserting test dataset into gaia_annotations 
+        for item in formatted_test_metadata:
+            cursor.execute(insert_annotations_table_query, (item['task_id'], item['steps'], item['number_of_steps'], item['time_taken'], item['tools'], item['number_of_tools']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion into gaia_annotations done\n")
+
+        # Inserting test dataset into gaia_annotations 
+        for item in formatted_validation_metadata:
+            cursor.execute(insert_annotations_table_query, (item['task_id'], item['steps'], item['number_of_steps'], item['time_taken'], item['tools'], item['number_of_tools']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion into gaia_annotations done\n")
+        logger.info("SQL - load_parsed_data_to_db() - Insert statement executed successfully")
+        conn.commit()
+
+    except Exception as e:
+        logger.error(f"SQL - load_parsed_data_to_db() - Error while loading parsed metadata into the Database table gaia_features and gaia_annotations = {e}")
+        raise e
+    finally:
+        conn.close()
 
 def main():
     setup_tables()
     cloud_uploader_pymupdf()
+    cloud_uploader_azure()
+    load_parsed_data_to_db()
 
 
 if __name__ == "__main__":

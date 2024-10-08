@@ -19,7 +19,7 @@ def download_pdf_from_gcs(bucket_name, file_name, creds_file_path):
     client = storage.Client(credentials=creds)
     blob = client.bucket(bucket_name).blob(file_name)
 
-    logger.info(f"Downloading: {file_name}")
+    logger.info(f"Airflow - azure_pdfFileExtractor.py() - Downloading: {file_name}")
     pdf_bytes = blob.download_as_bytes()  # Downloading as bytes
     return pdf_bytes
 
@@ -41,10 +41,10 @@ def download_pdf_files(bucket_name, gcp_files_path, folder_name, creds_file_path
     return pdf_data_list, pdf_file_names
 
 def extract_data_from_pdf(pdf_data, endpoint, key):
-    logger.info("Initializing Document Analysis Client")
+    logger.info("Airflow - azure_pdfFileExtractor.py() - Initializing Document Analysis Client")
     client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
-    logger.info("Sending PDF for analysis")
+    logger.info("Airflow - azure_pdfFileExtractor.py() - Sending PDF for analysis")
     poller = client.begin_analyze_document("prebuilt-document", document=io.BytesIO(pdf_data))
     result = poller.result()
 
@@ -55,7 +55,7 @@ def extract_data_from_pdf(pdf_data, endpoint, key):
         "images": []
     }
 
-    logger.info("Extracting data from PDF")
+    logger.info("Airflow - azure_pdfFileExtractor.py() - Extracting data from PDF")
     for page in result.pages:
         page_data = {
             "page_number": page.page_number,
@@ -110,14 +110,14 @@ def save_data(gcs_extract_file_path, folder_name, extracted_data, pdf_file_name)
         df = pd.DataFrame(table)
         csv_file_path = os.path.join(csv_pdf_folder, f'table_{i}.csv')
         df.to_csv(csv_file_path, index=False)
-        logger.info(f"Saved table {i} to {csv_file_path}.")
+        logger.info(f"Airflow - azure_pdfFileExtractor.py() - Saved table {i} to {csv_file_path}.")
 
     # Save text to JSON
     for page_number, text in enumerate(extracted_data['text'], 1):
         json_file_path = os.path.join(json_pdf_folder, f'page_{page_number}.json')
         with open(json_file_path, 'w') as json_file:
             json.dump({"page_number": page_number, "text": text}, json_file)
-        logger.info(f"Saved text for page {page_number} to {json_file_path}.")
+        logger.info(f"Airflow - azure_pdfFileExtractor.py() - Saved text for page {page_number} to {json_file_path}.")
 
     # Save images
     for i, image in enumerate(extracted_data['images']):
@@ -127,14 +127,14 @@ def save_data(gcs_extract_file_path, folder_name, extracted_data, pdf_file_name)
             image_data = base64.b64decode(encoded)
             with open(image_file_path, 'wb') as img_file:
                 img_file.write(image_data)
-            logger.info(f"Saved image from page {image['page_number']} to {image_file_path}.")
+            logger.info(f"Airflow - azure_pdfFileExtractor.py() - Saved image from page {image['page_number']} to {image_file_path}.")
         else:
-            logger.warning(f"Unsupported image format on page {image['page_number']}.")
+            logger.warning(f"Airflow - azure_pdfFileExtractor.py() - Unsupported image format on page {image['page_number']}.")
 
-def main():
-    logger.info("Inside main function")
+def driver_func():
+    logger.info("Airflow - azure_pdfFileExtractor.py() - Inside main function")
 
-    # Load Environment variables
+    # Load env variables
     load_dotenv()
 
     bucket_name = os.getenv("BUCKET_NAME")
@@ -144,7 +144,8 @@ def main():
     creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
     azure_endpoint = os.getenv("AZURE_ENDPOINT")
     azure_key = os.getenv("AZURE_KEY")
-    gcs_extract_file_path = os.getenv("GCS_AZURE_FILEPATH")
+    azure_filepath = os.getenv("GCS_AZURE_FILEPATH")
+
 
     # Download PDFs
     for folder_name in [test_files_path, validation_files_path]:
@@ -152,13 +153,13 @@ def main():
 
         # Extract data from downloaded PDFs
         for pdf_data, pdf_file_name in zip(pdf_data_list, pdf_file_names):
-            logger.info(f"Extracting data from {pdf_file_name}")
+            logger.info(f"Airflow - azure_pdfFileExtractor.py() - Extracting data from {pdf_file_name}")
             extracted_data = extract_data_from_pdf(pdf_data, azure_endpoint, azure_key)
-            save_data(gcs_extract_file_path, folder_name, extracted_data, pdf_file_name)
+            save_data(azure_filepath, folder_name, extracted_data, pdf_file_name)
 
+    
+def main():
+    driver_func()
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        logger.error(f"Error while executing main function: {e}")
+    main()

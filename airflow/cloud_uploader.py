@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from mysql.connector import Error
 from google.cloud import storage
 from google.oauth2 import service_account
+import pandas as pd
+import ast
 
 # Load the environment variables
 load_dotenv()
@@ -87,9 +89,6 @@ def setup_tables() -> None:
             "drop_adobe_page_info_table"            : "DROP TABLE IF EXISTS adobe_page_info;",
             "drop_adobe_attachment_table"           : "DROP TABLE IF EXISTS adobe_attachments;",
             "drop_adobe_info_table"                 : "DROP TABLE IF EXISTS adobe_info;",
-            "drop_azure_attachment_mapping_table"   : "DROP TABLE IF EXISTS azure_attachment_mapping;",
-            "drop_azure_page_info_table"            : "DROP TABLE IF EXISTS azure_page_info;",
-            "drop_azure_attachment_table"           : "DROP TABLE IF EXISTS azure_attachments;",
             "drop_azure_info_table"                 : "DROP TABLE IF EXISTS azure_info;",
         },
         "create_tables": {
@@ -213,45 +212,11 @@ def setup_tables() -> None:
             """,
             "create_azure_info_table": """
                 CREATE TABLE azure_info(
-                    pdf_id INT PRIMARY KEY AUTO_INCREMENT,
-                    file_name VARCHAR(255) NOT NULL,
-                    title VARCHAR(255) DEFAULT NULL,
-                    format varchar(255),
-                    creator VARCHAR(255) DEFAULT NULL,
-                    author VARCHAR(255) DEFAULT NULL,
-                    encryption VARCHAR(20) DEFAULT NULL,
-                    number_of_pages INT,
-                    number_of_words INT,
-                    number_of_images INT,
-                    number_of_tables INT
-                );
-            """,
-            "create_azure_page_info_table": """
-                CREATE TABLE azure_page_info(
                     info_id INT PRIMARY KEY AUTO_INCREMENT,
                     page_id INT NOT NULL,
                     text TEXT DEFAULT NULL,
-                    pdf_id INT NOT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id),
-                    INDEX (page_id)
-                );
-            """,
-            "create_azure_attachment_table": """
-                CREATE TABLE azure_attachments(
-                    attachment_id INT PRIMARY KEY AUTO_INCREMENT,
-                    attachment_name VARCHAR(255) NOT NULL,
-                    attachment_url TEXT NOT NULL
-                );
-            """,
-            "create_azure_attachment_mapping_table": """
-                CREATE TABLE azure_attachment_mapping(
-                    mapping_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT NOT NULL,
-                    page_id INT NOT NULL,
-                    attachment_id INT NOT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id),
-                    FOREIGN KEY (page_id) REFERENCES azure_page_info(page_id),
-                    FOREIGN KEY (attachment_id) REFERENCES azure_attachments(attachment_id)
+                    pdf_filename VARCHAR(255) NOT NULL
+
                 );
             """,
             "create_analytics_table": """
@@ -547,7 +512,6 @@ def cloud_uploader_azure():
                 dir_folder = os.path.join(dir_pdf, pdf)
                 dir_folder_list = os.listdir(dir_folder)
                 try:
-
                     # Folders - ['Images', 'JSON', 'CSV']
                     for folder in dir_folder_list:
                         folder_dir = os.path.join(dir_folder, folder)
@@ -568,7 +532,39 @@ def cloud_uploader_azure():
                 except Exception as e:
                     logger.error(f"Azure - cloud_uploader_azure() - Error occured while uploading files to GCS")
                     raise e
-    
+                
+                try:
+                    # dir_folder = curr_dir + azure_doc_extract/test/pdf_filename + "JSON"
+                    json_dir = os.path.join(dir_folder, 'JSON')
+                    json_file_list = os.listdir(json_dir)
+                    logger.info(f"PDF Filename = {pdf}")
+
+                    for jsonFile in json_file_list:
+                        # cwd + /azure_doc_extract/test/be353748-74eb-4904-8f17-f180ce087f1a/JSON/page_1.json
+                        page_file_path = os.path.join(json_dir, jsonFile)
+                        logger.info(f"Azure - cloud_uploader_azure() - Processing {azure_filepath}/{dir}/{pdf}/JSON/{jsonFile}")
+                        with open(page_file_path, 'r') as _file:
+                            page = json.load(_file)
+                        
+                        logger.info(f"Page id = {page['page_number']}")
+                        # Read the 'text' content in each json file, and save them to the database
+                        insert_text_query = """
+                        INSERT INTO azure_info (page_id, text, pdf_filename)
+                        VALUES (%s, %s, %s)
+                        """
+
+                        logger.info(f"SQL - cloud_uploader_azure() - Inserting text for pdf {pdf}")
+                        cursor = conn.cursor()
+                        cursor.execute(insert_text_query, (page['page_number'], page['text'], pdf))
+
+                        conn.commit()
+                        logger.info(f"SQL - cloud_uploader_azure() - Inserted text for pdf {pdf}")
+
+
+                except Exception as e:
+                    logger.error(f"Azure - cloud_uploader_azure() - Error fetching directory contents: {json_dir}")
+                    raise e        
+
     except Exception as e:
         logger.error("Azure - cloud_uploader_azure() - Error while executing cloud_uploader_azure() function")
         raise e

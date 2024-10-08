@@ -61,7 +61,7 @@ def load_files(access_token, repository_id, repository_type, file_path):
     total_files = [file for file in files if file.startswith(file_path)]
     return total_files
 
-def main():
+def driver_func():
 
     logger.info("Inside main function")
     
@@ -75,18 +75,15 @@ def main():
     creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
     file_path = os.getenv("FILE_PATH")
     gcp_folder_path = os.getenv("GCP_FILES_PATH")
-    
 
     # Call load_files function to download all the files from validation set
     files = load_files(access_token, repository_id, repository_type, file_path)
-    print(files)
     load_files_into_gcp(repository_id, repository_type, files, bucket_name, creds_file_path, gcp_folder_path)
+
+def main():
+    driver_func()
 
 
 if __name__ == "__main__":
-    try: 
-        main()
-    except Exception as e:
-        logger.error(f"Error while executing main function")
-        raise e
+    main()
     

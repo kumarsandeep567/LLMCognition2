@@ -1,3 +1,4 @@
+
 from dotenv import load_dotenv
 from google.cloud import storage
 from google.oauth2 import service_account
@@ -95,7 +96,7 @@ def upload_csv_to_gcs(bucket_name, blob_name , csv_filename, creds_file_path):
     blob.upload_from_filename(csv_filename)
     print(f"Uploaded {csv_filename} to GCS bucket {bucket_name} as {blob_name}")
 
-def main():
+def driver_func():
     logger.info("Inside main function")
 
     # Load Environment variables
@@ -127,9 +128,8 @@ def main():
     upload_csv_to_gcs(bucket_name, f"{gcp_csv_filepath}{test_csv_filename}", test_csv_filename, creds_file_path)
     upload_csv_to_gcs(bucket_name, f"{gcp_csv_filepath}{validation_csv_filename}", validation_csv_filename, creds_file_path)
 
+def main():
+    driver_func()
+
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        logger.error(f"Error while executing main function: {e}")
-        raise(e)
+    main()

@@ -1,0 +1,11 @@
+fastapi[standard]
+mysql-connector-python
+python-multipart
+passlib
+tiktoken
+openai
+python-docx
+openpyxl
+PyPDF2
+google-cloud-storage
+google-auth

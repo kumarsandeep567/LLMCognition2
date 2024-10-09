@@ -3,9 +3,13 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.utils.dates import days_ago
 
 import os
+import io
+import re
+import csv
 import json
 import time
 import shutil
+import base64
 import logging
 import pymupdf
 import pandas as pd
@@ -15,11 +19,17 @@ from unidecode import unidecode
 from google.cloud import storage
 from mysql.connector import Error
 from google.oauth2 import service_account
-from huggingface_hub import hf_hub_download, list_repo_files
+from azure.core.credentials import AzureKeyCredential
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from huggingface_hub import login, hf_hub_download, list_repo_files
 
 
 # Load the environment variables
 load_dotenv()
+
+# Logger function
+logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # ============================= Logger : Begin =============================
 
@@ -154,6 +164,354 @@ def get_pdf_list():
         pymupdf_logger.error(exception)
     
     return pdf_list
+
+def load_files_into_gcp(repository_id, repository_type, files, bucket_name, creds_file_path, gcp_folder_path):
+    logger.info("Airflow - fileLoader_driver_func() - load_files_into_gcp() - Loading files into Google Cloud Storage bucket")
+
+    try:
+        # Creating Google Cloud Storage Client
+        creds = service_account.Credentials.from_service_account_file(creds_file_path)
+        client = storage.Client(credentials = creds)
+        bkt = client.bucket(bucket_name)
+
+        logger.info("Airflow - fileLoader_driver_func() - load_files_into_gcp() - Connection to GCS successful")
+
+        for file in files:
+            file_data = hf_hub_download(
+                repo_id = repository_id,
+                repo_type = repository_type,
+                filename = file
+            )
+            
+            # Checking if the file is from test/validation set
+            if "test" in file:
+                gcs_file_path = os.path.join(gcp_folder_path, "test", os.path.basename(file))
+            elif "validation" in file:
+                gcs_file_path = os.path.join(gcp_folder_path, "validation", os.path.basename(file))
+            else:
+                logger.warning(f"Airflow - fileLoader_driver_func() - load_files_into_gcp() - File {file} does not match test or validation categories. Skipping upload.")
+                continue
+
+            # Upload to GCS from request response
+            blob = bkt.blob(gcs_file_path)
+            blob.upload_from_filename(file_data)
+            logger.info(f"Airflow - fileLoader_driver_func() - load_files_into_gcp() - Uploaded {file} to GCS bucket {bucket_name}")
+            logger.info("Airflow - fileLoader_driver_func() - load_files_into_gcp() - Files successfully loaded to Google Cloud Storage")
+
+    except Exception as e:
+        logger.error("Airflow - fileLoader_driver_func() - load_files_into_gcp() - GCP connection failed")
+        raise e
+
+
+def load_files(access_token, repository_id, repository_type, file_path):
+    logger.info("Airflow - fileLoader_driver_func() - load_files() - Loading files from hugging face")
+
+    # Login to hugging face
+    login(token = access_token, add_to_git_credential = False)
+
+    # Load all the files from the GAIA benchmark repository
+    files = list_repo_files(
+        repo_id = repository_id,
+        repo_type = repository_type
+    )
+
+    # Filter validation files
+    total_files = [file for file in files if file.startswith(file_path)]
+    logger.info("Airflow - fileLoader_driver_func() - load_files() - Files successfully downloaded from Hugging Face")
+    return total_files
+
+def fileLoader_driver_func():
+
+    logger.info("Airflow - fileLoader_driver_func() - Loading files from Hugging Face to GCS")
+
+    access_token = os.getenv("HUGGINGFACE_TOKEN")
+    repository_id = os.getenv("REPO_ID")
+    repository_type = os.getenv("REPO_TYPE")
+    bucket_name = os.getenv("BUCKET_NAME")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+    file_path = os.getenv("FILE_PATH")
+    gcp_folder_path = os.getenv("GCP_FILES_PATH")
+
+    # Call load_files function to download all the files from validation set
+    files = load_files(access_token, repository_id, repository_type, file_path)
+    load_files_into_gcp(repository_id, repository_type, files, bucket_name, creds_file_path, gcp_folder_path)
+    logger.info("Airflow - fileLoader_driver_func() - Loading files from Hugging Face to GCS executed successfully")
+
+
+def download_json_from_gcs(bucket_name, blob_name, json_path, creds_file_path):
+    logger.info("Airflow - fileParser_driver_func() - download_json_from_gcs() - Inside download_json from Google Cloud Storage function")
+    # Creating GCS client
+
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials = creds)
+    bkt = client.bucket(bucket_name)
+    logger.info("Airflow - fileParser_driver_func() - download_json_from_gcs() - Connection to Google Cloud Storage successful")
+
+    # Get metadata file
+    blob = bkt.blob(blob_name)
+    blob.download_to_filename(json_path)
+    logger.info(f"Airflow - fileParser_driver_func() - download_json_from_gcs() - Downloaded {blob_name} from GCS bucket {bucket_name} to {json_path}")
+
+
+def clean_string(value):
+    # Remove extra spaces and characters from a string
+    logger.info("Airflow - fileParser_driver_func() - clean_string() - Inside clean string function")
+
+    if isinstance(value, str):
+        value = value.strip()
+        value = re.sub(r'[\x00\s\n]', ' ', value)
+        value = value.replace('"', '')
+        return value if value else ''
+    logger.info("Airflow - fileParser_driver_func() - clean_string() - Clean string function executed succesfully")
+    return str(value)
+
+
+def clean_data(data):
+    # Recursively clean each value in the dictionary
+    logger.info("Airflow - fileParser_driver_func() - clean_data() - Inside clean data function")
+
+    for key, value in data.items():
+        if value is None:
+            data[key] = ""
+        if isinstance(value, dict):
+            data[key] = clean_data(value)
+        elif isinstance(value, list):
+            data[key] = [clean_string(v) if isinstance(v, str) else str(v) for v in value]
+        else:
+            data[key] = clean_string(value)
+    logger.info("Airflow - fileParser_driver_func() - clean_data() - Clean data function executed succesfully")
+    return data
+
+
+def process_json_file(file_path):
+    logger.info("Airflow - fileParser_driver_func() - process_json_file() - Inside processing JSON file function")
+
+    processed_data = []
+
+    # Loads the entire jsonl metadata file
+    with open(file_path, 'r') as file:
+        for line in file:
+            try:
+                json_data = json.loads(line)
+                cleaned_data = clean_data(json_data)
+                processed_data.append(cleaned_data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Airflow - fileParser_driver_func() - process_json_file() - Error parsing line: {line}")
+                logger.error(f"Airflow - fileParser_driver_func() - process_json_file() - Error message: {e}")
+    logger.info("Airflow - fileParser_driver_func() - process_json_file() - Processing json file function executed succesfully")
+    return processed_data
+
+
+def load_into_csv(data, csv_filename):
+    logger.info("Airflow - fileParser_driver_func() - load_into_csv() - Inside processing JSON file function")
+    with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+        fieldnames = data[0].keys()
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(data)
+    logger.info("Airflow - fileParser_driver_func() - load_into_csv() - Data loaded into csv file successfully")
+
+def upload_csv_to_gcs(bucket_name, blob_name , csv_filename, creds_file_path):
+    logger.info("Airflow - fileParser_driver_func() - upload_csv_to_gcs() - Uploading csv file into GCS")
+    # Upload csv file into GCP
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials = creds)
+    bkt = client.bucket(bucket_name)
+    blob = bkt.blob(blob_name)
+    blob.upload_from_filename(csv_filename)
+    print(f"Airflow - fileParser_driver_func() - upload_csv_to_gcs() - Uploaded {csv_filename} to GCS bucket {bucket_name} as {blob_name}")
+
+def fileParser_driver_func():
+    logger.info("Airflow - fileParser_driver_func() - Parsing Metadata file and loading it into CSV")
+
+    # Load Environment variables
+    load_dotenv()
+
+    bucket_name = os.getenv("BUCKET_NAME")
+    test_blob_name = os.getenv("GCP_FILES_PATH") + os.getenv("TEST_FILE_PATH") + os.getenv("METADATA_FILENAME")
+    validation_blob_name = os.getenv("GCP_FILES_PATH") + os.getenv("VALIDATION_FILE_PATH") + os.getenv("METADATA_FILENAME")
+    test_json_path = os.getenv("TEST_METADATA_FILENAME") 
+    validation_json_path = os.getenv("VALIDATION_METADATA_FILENAME")
+    gcp_csv_filepath = os.getenv("GCP_CSV_PATH")
+    test_csv_filename = os.getenv("TEST_CSV_FILENAME")
+    validation_csv_filename = os.getenv("VALIDATION_CSV_FILENAME")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+
+    # Download metadata JSON file from GCS
+    download_json_from_gcs(bucket_name, test_blob_name, test_json_path, creds_file_path)
+    download_json_from_gcs(bucket_name, validation_blob_name, validation_json_path, creds_file_path)
+    logger.info("Airflow - fileParser_driver_func() - JSON files downloaded from GCS")
+
+    # Process the JSON file
+    test_processed_data = process_json_file(test_json_path)
+    validation_processed_data = process_json_file(validation_json_path)
+    logger.info("Airflow - fileParser_driver_func() - JSON files processed")
+
+    # Load processed json data into csv file
+    load_into_csv(test_processed_data, test_csv_filename)
+    load_into_csv(validation_processed_data, validation_csv_filename)
+    logger.info("Airflow - fileParser_driver_func() - Processed JSON files are loded into CSV")
+
+    # Upload the processed CSV file back to GCS
+    upload_csv_to_gcs(bucket_name, f"{gcp_csv_filepath}{test_csv_filename}", test_csv_filename, creds_file_path)
+    upload_csv_to_gcs(bucket_name, f"{gcp_csv_filepath}{validation_csv_filename}", validation_csv_filename, creds_file_path)
+    logger.info("Airflow - fileParser_driver_func() - Processed CSV files uploaded to GCS csv_files_path")
+
+    logger.info("Airflow - fileParser_driver_func() - Parsing Metadata file and loading it into CSV executed successfully")
+
+def download_pdf_from_gcs(bucket_name, file_name, creds_file_path):
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - download_pdf_from_gcs() - Downloading all pdf files from GCS")
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials=creds)
+    blob = client.bucket(bucket_name).blob(file_name)
+
+    logger.info(f"Airflow - azure_pdfFileExtractor_driver_func.py() - download_pdf_from_gcs() - Downloading: {file_name}")
+    pdf_bytes = blob.download_as_bytes()  # Downloading as bytes
+    return pdf_bytes
+
+def download_pdf_files(bucket_name, gcp_files_path, folder_name, creds_file_path):
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - download_pdf_files() - Downloading all pdf files from GCS")
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials=creds)
+    bkt = client.bucket(bucket_name)
+
+    blobs = bkt.list_blobs(prefix=os.path.join(gcp_files_path, folder_name))
+    pdf_data_list = []
+    pdf_file_names = []
+
+    for blob in blobs:
+        if blob.name.endswith('.pdf'):
+            pdf_data = download_pdf_from_gcs(bucket_name, blob.name, creds_file_path)
+            pdf_data_list.append(pdf_data)
+            pdf_file_names.append(os.path.basename(blob.name))
+
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - download_pdf_files() - Downloading all pdf files from GCS executed successfully")
+
+    return pdf_data_list, pdf_file_names
+
+def extract_data_from_pdf(pdf_data, endpoint, key):
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - extract_data_from_pdf() - Extracting data with Azure Document Analysis Client")
+    client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - extract_data_from_pdf() - Sending PDF for analysis")
+    poller = client.begin_analyze_document("prebuilt-document", document=io.BytesIO(pdf_data))
+    result = poller.result()
+
+    # Initialize containers for extracted data
+    extracted_data = {
+        "tables": [],
+        "text": [],
+        "images": []
+    }
+
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - extract_data_from_pdf() - Extracting data from PDF")
+    for page in result.pages:
+        page_data = {
+            "page_number": page.page_number,
+            "tables": [],
+            "text": "",
+            "images": []
+        }
+
+        # Extract tables
+        if hasattr(page, 'tables') and page.tables:
+            for table in page.tables:
+                table_data = []
+                for cell in table.cells:
+                    table_data.append({
+                        "row_index": cell.row_index,
+                        "column_index": cell.column_index,
+                        "text": cell.content
+                    })
+                page_data['tables'].append(table_data)
+
+        # Extract text
+        page_data['text'] = ' '.join([line.content for line in page.lines if line.content.strip()])
+
+        # Extract images
+        if hasattr(page, 'images') and page.images:
+            for image in page.images:
+                page_data['images'].append({
+                    "image_content": image.content,
+                    "page_number": page.page_number
+                })
+
+        extracted_data["tables"].extend(page_data["tables"])
+        extracted_data["text"].append(page_data["text"])
+        extracted_data["images"].extend(page_data["images"])
+        logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - extract_data_from_pdf() - Extracting data with Azure AI Document Intelligence Tool executed successfully")
+
+    return extracted_data
+
+def save_data(gcs_extract_file_path, folder_name, extracted_data, pdf_file_name):
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - save_data() - Saving Extracted files to Local Directory")
+    pdf_folder = os.path.join(gcs_extract_file_path, folder_name, os.path.splitext(pdf_file_name)[0])
+    os.makedirs(pdf_folder, exist_ok=True)
+
+    json_pdf_folder = os.path.join(pdf_folder, "JSON")
+    csv_pdf_folder = os.path.join(pdf_folder, "CSV")
+    image_pdf_folder = os.path.join(pdf_folder, "Images")
+
+    os.makedirs(json_pdf_folder, exist_ok=True)
+    os.makedirs(csv_pdf_folder, exist_ok=True)
+    os.makedirs(image_pdf_folder, exist_ok=True)
+
+    # Save tables to CSV
+    for i, table in enumerate(extracted_data['tables']):
+        df = pd.DataFrame(table)
+        csv_file_path = os.path.join(csv_pdf_folder, f'table_{i}.csv')
+        df.to_csv(csv_file_path, index=False)
+        logger.info(f"Airflow - azure_pdfFileExtractor_driver_func.py() - save_data() - Saved table {i} to {csv_file_path}.")
+
+    # Save text to JSON
+    for page_number, text in enumerate(extracted_data['text'], 1):
+        json_file_path = os.path.join(json_pdf_folder, f'page_{page_number}.json')
+        with open(json_file_path, 'w') as json_file:
+            json.dump({"page_number": page_number, "text": text}, json_file)
+        logger.info(f"Airflow - azure_pdfFileExtractor_driver_func.py() - save_data() - Saved text for page {page_number} to {json_file_path}.")
+
+    # Save images
+    for i, image in enumerate(extracted_data['images']):
+        image_file_path = os.path.join(image_pdf_folder, f'image_page_{image["page_number"]}_{i}.png')
+        if image['image_content'].startswith('data:image/png;base64,'):
+            _, encoded = image['image_content'].split(',', 1)
+            image_data = base64.b64decode(encoded)
+            with open(image_file_path, 'wb') as img_file:
+                img_file.write(image_data)
+            logger.info(f"Airflow - azure_pdfFileExtractor_driver_func.py() - save_data() - Saved image from page {image['page_number']} to {image_file_path}.")
+        else:
+            logger.warning(f"Airflow - azure_pdfFileExtractor_driver_func.py() - save_data() - Unsupported image format on page {image['page_number']}.")
+
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - save_data() - Saving Extracted files to Local Directory executed successfully")
+
+def azure_pdfFileExtractor_driver_func():
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - Text extracted from pdf files by Azure AI Document Intelligence Tool")
+
+    # Load env variables
+    load_dotenv()
+
+    bucket_name = os.getenv("BUCKET_NAME")
+    gcp_files_path = os.getenv("GCP_FILES_PATH")
+    test_files_path = os.getenv("TEST_FILE_PATH")
+    validation_files_path = os.getenv("VALIDATION_FILE_PATH")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+    azure_endpoint = os.getenv("AZURE_ENDPOINT")
+    azure_key = os.getenv("AZURE_KEY")
+    azure_filepath = os.getenv("GCS_AZURE_FILEPATH")
+
+
+    # Download PDFs
+    for folder_name in [test_files_path, validation_files_path]:
+        pdf_data_list, pdf_file_names = download_pdf_files(bucket_name, gcp_files_path, folder_name, creds_file_path)
+        logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - Extracting pdf files from {folder_name}")
+
+        # Extract data from downloaded PDFs
+        for pdf_data, pdf_file_name in zip(pdf_data_list, pdf_file_names):
+            logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - Extracting data from {pdf_file_name} from {folder_name}")
+            extracted_data = extract_data_from_pdf(pdf_data, azure_endpoint, azure_key)
+            save_data(azure_filepath, folder_name, extracted_data, pdf_file_name)
+
+    logger.info("Airflow - azure_pdfFileExtractor_driver_func.py() - Text extracted successfully from pdf files by Azure AI Document Intelligence Tool")
 
 
 def extract_content_pymupdf():
@@ -394,15 +752,13 @@ def setup_tables() -> None:
             "drop_adobe_page_info_table"            : "DROP TABLE IF EXISTS adobe_page_info;",
             "drop_adobe_attachment_table"           : "DROP TABLE IF EXISTS adobe_attachments;",
             "drop_adobe_info_table"                 : "DROP TABLE IF EXISTS adobe_info;",
-            "drop_azure_attachment_mapping_table"   : "DROP TABLE IF EXISTS azure_attachment_mapping;",
-            "drop_azure_page_info_table"            : "DROP TABLE IF EXISTS azure_page_info;",
-            "drop_azure_attachment_table"           : "DROP TABLE IF EXISTS azure_attachments;",
             "drop_azure_info_table"                 : "DROP TABLE IF EXISTS azure_info;",
         },
         "create_tables": {
             "create_features_table": """
                 CREATE TABLE gaia_features(
                     task_id VARCHAR(255) PRIMARY KEY,
+                    dataset_type VARCHAR(255) NOT NULL,
                     question TEXT,
                     level INT,
                     final_answer VARCHAR(255),
@@ -519,45 +875,11 @@ def setup_tables() -> None:
             """,
             "create_azure_info_table": """
                 CREATE TABLE azure_info(
-                    pdf_id INT PRIMARY KEY AUTO_INCREMENT,
-                    file_name VARCHAR(255) NOT NULL,
-                    title VARCHAR(255) DEFAULT NULL,
-                    format varchar(255),
-                    creator VARCHAR(255) DEFAULT NULL,
-                    author VARCHAR(255) DEFAULT NULL,
-                    encryption VARCHAR(20) DEFAULT NULL,
-                    number_of_pages INT,
-                    number_of_words INT,
-                    number_of_images INT,
-                    number_of_tables INT
-                );
-            """,
-            "create_azure_page_info_table": """
-                CREATE TABLE azure_page_info(
                     info_id INT PRIMARY KEY AUTO_INCREMENT,
                     page_id INT NOT NULL,
                     text TEXT DEFAULT NULL,
-                    pdf_id INT NOT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id),
-                    INDEX (page_id)
-                );
-            """,
-            "create_azure_attachment_table": """
-                CREATE TABLE azure_attachments(
-                    attachment_id INT PRIMARY KEY AUTO_INCREMENT,
-                    attachment_name VARCHAR(255) NOT NULL,
-                    attachment_url TEXT NOT NULL
-                );
-            """,
-            "create_azure_attachment_mapping_table": """
-                CREATE TABLE azure_attachment_mapping(
-                    mapping_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT NOT NULL,
-                    page_id INT NOT NULL,
-                    attachment_id INT NOT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES azure_info(pdf_id),
-                    FOREIGN KEY (page_id) REFERENCES azure_page_info(page_id),
-                    FOREIGN KEY (attachment_id) REFERENCES azure_attachments(attachment_id)
+                    pdf_filename VARCHAR(255) NOT NULL
+
                 );
             """,
             "create_analytics_table": """
@@ -605,6 +927,145 @@ def setup_tables() -> None:
         if conn and conn.is_connected():
             conn.close()
             pymupdf_logger.info("DATABASE - setup_tables() - Connection to the database was closed")
+
+
+def download_csv_from_gcs(bucket_name, blob_name, local_file_path, creds_file_path):
+    # Download CSV file from GCS
+    logger.info("SQL - download_csv_from_gcs() - In function to download CSV file from GCS")
+
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials = creds)
+    bkt = client.bucket(bucket_name)
+    blob = bkt.blob(blob_name)
+    blob.download_to_filename(local_file_path)
+    logger.info(f"SQL - download_csv_from_gcs() - Downloaded {blob_name} from GCS bucket {bucket_name} to {local_file_path}")
+
+def get_file_paths(bucket_name, creds_file_path, gcp_folder_path):
+    logger.info("SQL - get_file_paths() - Retrieving file paths from GCS")
+    # Retrieve file names from GCS bucket
+    storage_client = storage.Client.from_service_account_json(creds_file_path)
+    blobs = storage_client.list_blobs(bucket_name, prefix = gcp_folder_path)
+    file_path_dict = {os.path.basename(blob.name): f"/{bucket_name}/{blob.name}" for blob in blobs if blob.name.startswith(gcp_folder_path)}
+    return file_path_dict
+
+def format_csv_data(df, file_paths_dict, dataset_type):
+    logger.info("SQL - format_csv_data() - Formatting data inside CSV file")
+    formatted_data = []
+    formatted_metadata = []
+    
+    for index, row in df.iterrows():
+        file_name = None if ((pd.isna(row['file_name'])) or (row['file_name'] == '')) else row['file_name'].strip('"')
+        file_path = file_paths_dict.get(file_name)
+
+        formatted_row = {
+            'task_id': row["task_id"].strip('"'),
+            'dataset_type': dataset_type,
+            'question': row["Question"].strip('"'),
+            'level': int(row["Level"]),
+            'final_answer': row['Final answer'].strip('"'),
+            'file_name': file_name,
+            'file_path': file_path
+        }
+        formatted_data.append(formatted_row)
+
+        metadata_str = row['Annotator Metadata']
+        metadata = ast.literal_eval(metadata_str)
+
+        # Replace final_answer in steps with an empty string
+        if 'final_answer' in formatted_row:
+            final_answer = formatted_row['final_answer']
+            metadata['Steps'] = metadata['Steps'].replace(final_answer, '') 
+
+
+        formatted_metadata_row = {
+            'task_id': row['task_id'].strip('"'),
+            'steps' : metadata['Steps'],
+            'number_of_steps' : metadata['Number of steps'],
+            'time_taken' : metadata['How long did this take?'],
+            'tools' : metadata['Tools'],
+            'number_of_tools' : metadata['Number of tools']
+        }
+        formatted_metadata.append(formatted_metadata_row)
+    logger.info("SQL - format_csv_data() - Features and metadata formatting done")
+    return formatted_data, formatted_metadata
+
+def loadDatabase_driver_func():
+    logger.info("cInside load_parsed_data_to_db() function")
+    logger.info("SQL - load_parsed_data_to_db() - Uploading parsed test and validation file data into gaia_features, gaia_annotations table to the Database")
+
+    # Environment variables
+    bucket_name = os.getenv("BUCKET_NAME")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+    gcp_files_path = os.getenv("GCP_FILES_PATH")
+    test_files_path = os.getenv("TEST_FILE_PATH")
+    validation_files_path = os.getenv("VALIDATION_FILE_PATH")
+    test_blob_name = os.getenv("GCP_CSV_PATH") + os.getenv("TEST_CSV_FILENAME")
+    validation_blob_name = os.getenv("GCP_CSV_PATH") + os.getenv("VALIDATION_CSV_FILENAME")
+    local_test_csv_path = os.getenv("TEST_CSV_FILENAME")
+    local_validation_csv_path = os.getenv("VALIDATION_CSV_FILENAME")
+
+    try:
+        # Connecting to the Database
+        conn = create_connection()
+
+        test_folder_path = os.path.join(gcp_files_path, test_files_path)
+        test_file_paths_dict = get_file_paths(bucket_name, creds_file_path, test_folder_path)
+
+        validation_folder_path = os.path.join(gcp_files_path, validation_files_path)
+        validation_file_paths_dict = get_file_paths(bucket_name, creds_file_path, validation_folder_path)
+
+        # Download the CSV file from GCS
+        download_csv_from_gcs(bucket_name, test_blob_name, local_test_csv_path, creds_file_path)
+        download_csv_from_gcs(bucket_name, validation_blob_name, local_validation_csv_path, creds_file_path)
+
+        # Load CSV data into DataFrame
+        df_test = pd.read_csv(local_test_csv_path)
+        df_validation = pd.read_csv(local_validation_csv_path)
+
+        formatted_test_data, formatted_test_metadata = format_csv_data(df_test, test_file_paths_dict, dataset_type = "test")
+        formatted_validation_data, formatted_validation_metadata = format_csv_data(df_validation, validation_file_paths_dict, dataset_type = "validation")
+
+        insert_features_table_query = """
+        INSERT INTO gaia_features(task_id, dataset_type, question, level, final_answer, file_name, file_path)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        insert_annotations_table_query = """
+        INSERT INTO gaia_annotations(task_id, steps, number_of_steps, time_taken, tools, number_of_tools)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+
+        cursor = conn.cursor()
+
+        # for formatted_data in [formatted_test_data, formatted_validation_data]:
+        #     for item in formatted_data:
+
+        # Inserting test dataset into gaia_features 
+        for item in formatted_test_data:
+            cursor.execute(insert_features_table_query, (item['task_id'], item['dataset_type'], item['question'], item['level'], item['final_answer'], item['file_name'], item['file_path']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion of test dataset into gaia_features done\n")
+
+        # Inserting validation dataset into gaia_features 
+        for item in formatted_validation_data:
+            cursor.execute(insert_features_table_query, (item['task_id'], item['dataset_type'], item['question'], item['level'], item['final_answer'], item['file_name'], item['file_path']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion of validation dataset into gaia_features done\n")
+
+        # Inserting test dataset into gaia_annotations 
+        for item in formatted_test_metadata:
+            cursor.execute(insert_annotations_table_query, (item['task_id'], item['steps'], item['number_of_steps'], item['time_taken'], item['tools'], item['number_of_tools']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion into gaia_annotations done\n")
+
+        # Inserting test dataset into gaia_annotations 
+        for item in formatted_validation_metadata:
+            cursor.execute(insert_annotations_table_query, (item['task_id'], item['steps'], item['number_of_steps'], item['time_taken'], item['tools'], item['number_of_tools']))
+        logger.info("SQL - load_parsed_data_to_db() - Insertion into gaia_annotations done\n")
+        logger.info("SQL - load_parsed_data_to_db() - Insert statement executed successfully")
+        conn.commit()
+
+    except Exception as e:
+        logger.error(f"SQL - load_parsed_data_to_db() - Error while loading parsed metadata into the Database table gaia_features and gaia_annotations = {e}")
+        raise e
+    finally:
+        conn.close()
 
 
 def cloud_uploader_pymupdf() -> None:
@@ -822,6 +1283,101 @@ def cloud_uploader_pymupdf() -> None:
                     pymupdf_logger.info("DATABASE - cloud_uploader_pymupdf() - Connection to the database was closed")
 
 
+def cloud_uploader_azure():
+    logger.info("Azure - cloud_uploader_azure() - Inside cloud_uploader_azure() function")
+    logger.info("Azure - cloud_uploader_azure() - Uploading file contents to the Database and files to GCS")
+
+    # Load environmental variables
+    creds_file_path = os.path.join(os.getcwd(), os.getenv("GCS_CREDENTIALS_PATH"))  
+    bucket_name = os.getenv("BUCKET_NAME")
+    azure_filepath = os.getenv("GCS_AZURE_FILEPATH")
+
+    try:
+        # Google Cloud Storage Client
+        creds = service_account.Credentials.from_service_account_file(creds_file_path)
+        client = storage.Client(credentials = creds)
+        bkt = client.bucket(bucket_name)
+        logger.info("Azure - cloud_uploader_azure() - GCS Client for Azure created successfully")
+
+        # Connecting to the Database
+        conn = create_connection()
+
+        # Path to extracted pdf content
+        dir_set = os.path.join(os.getcwd(), azure_filepath)
+        dir_set_list = os.listdir(dir_set)
+
+        for dir in dir_set_list:
+            dir_pdf = os.path.join(dir_set, dir)
+            dir_pdf_list = os.listdir(dir_pdf)
+
+            # List of pdfs from the dataset_type
+            for pdf in dir_pdf_list:          
+                dir_folder = os.path.join(dir_pdf, pdf)
+                dir_folder_list = os.listdir(dir_folder)
+                try:
+                    # Folders - ['Images', 'JSON', 'CSV']
+                    for folder in dir_folder_list:
+                        folder_dir = os.path.join(dir_folder, folder)
+                        file_list = os.listdir(folder_dir)
+                        gcs_file_path = os.path.join(azure_filepath, dir, pdf, folder) + '/'
+
+                        if file_list:
+                            # Files inside the Folders
+                            for file in file_list:
+                                logger.info(f"Azure - cloud_uploader_azure() - Uploading {file} file from {folder} folder and its contents to GCS")
+                                file_blob = os.path.join(gcs_file_path, file)
+                                blob = bkt.blob(file_blob)
+                                blob.upload_from_filename(file_blob)
+                        else:
+                            logger.info(f"Azure - cloud_uploader_azure() - Uploading empty {folder} folder to GCS")
+                            blob = bkt.blob(gcs_file_path)
+                            blob.upload_from_string('')
+                except Exception as e:
+                    logger.error(f"Azure - cloud_uploader_azure() - Error occured while uploading files to GCS")
+                    raise e
+                
+                try:
+                    # dir_folder = curr_dir + azure_doc_extract/test/pdf_filename + "JSON"
+                    json_dir = os.path.join(dir_folder, 'JSON')
+                    json_file_list = os.listdir(json_dir)
+                    logger.info(f"PDF Filename = {pdf}")
+
+                    for jsonFile in json_file_list:
+                        # cwd + /azure_doc_extract/test/be353748-74eb-4904-8f17-f180ce087f1a/JSON/page_1.json
+                        page_file_path = os.path.join(json_dir, jsonFile)
+                        logger.info(f"Azure - cloud_uploader_azure() - Processing {azure_filepath}/{dir}/{pdf}/JSON/{jsonFile}")
+                        with open(page_file_path, 'r') as _file:
+                            page = json.load(_file)
+                        
+                        logger.info(f"Page id = {page['page_number']}")
+                        # Read the 'text' content in each json file, and save them to the database
+                        insert_text_query = """
+                        INSERT INTO azure_info (page_id, text, pdf_filename)
+                        VALUES (%s, %s, %s)
+                        """
+
+                        logger.info(f"SQL - cloud_uploader_azure() - Inserting text for pdf {pdf}")
+                        cursor = conn.cursor()
+                        cursor.execute(insert_text_query, (page['page_number'], page['text'], pdf))
+
+                        conn.commit()
+                        logger.info(f"SQL - cloud_uploader_azure() - Inserted text for pdf {pdf}")
+
+
+                except Exception as e:
+                    logger.error(f"Azure - cloud_uploader_azure() - Error fetching directory contents: {json_dir}")
+                    raise e        
+
+    except Exception as e:
+        logger.error("Azure - cloud_uploader_azure() - Error while executing cloud_uploader_azure() function")
+        raise e
+
+    finally:
+        conn.close()
+        logger.info("Azure - cloud_uploader_azure() - Connection to the database closed")
+        logger.info("Azure - cloud_uploader_azure() - Uploading content to database and GCS successful")
+
+
 # DAG configuration
 default_args = {
     'owner'     : 'airflow',
@@ -840,6 +1396,21 @@ with DAG(
         task_id='pdf_downloader',
         python_callable=pdf_downloader
     )
+
+    fileLoader_task = PythonOperator(
+        task_id = 'fileLoader',
+        python_callable = fileLoader_driver_func
+    )
+
+    fileParser_task = PythonOperator(
+        task_id = 'fileParser',
+        python_callable = fileParser_driver_func
+    )
+
+    azure_pdfFileExtractor = PythonOperator(
+        task_id = 'azure_pdfFileExtractor',
+        python_callable = azure_pdfFileExtractor_driver_func
+    )
     
     extract_pymupdf_task = PythonOperator(
         task_id='extract_content_pymupdf',
@@ -855,11 +1426,21 @@ with DAG(
         task_id='setup_tables',
         python_callable=setup_tables
     )
+
+    load_database_task = PythonOperator(
+        task_id = 'loadDatabase',
+        python_callable = loadDatabase_driver_func
+    )
     
     cloud_uploader_pymupdf_task = PythonOperator(
         task_id='cloud_uploader_pymupdf',
         python_callable=cloud_uploader_pymupdf
     )
+
+    cloud_uploader_azure_task = PythonOperator(
+        task_id='cloud_uploader_azure',
+        python_callable=cloud_uploader_azure
+    )
     
     # Task Dependencies
-    download_pdf_task >> extract_pymupdf_task >> extract_metadata_task >> setup_tables_task >> cloud_uploader_pymupdf_task
+    download_pdf_task >> fileLoader_task >> fileParser_task >> azure_pdfFileExtractor >> extract_pymupdf_task >> extract_metadata_task >> setup_tables_task >> load_database_task >> cloud_uploader_pymupdf_task >> cloud_uploader_azure_task

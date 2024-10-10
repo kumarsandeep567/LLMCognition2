@@ -9,3 +9,4 @@ openpyxl
 PyPDF2
 google-cloud-storage
 google-auth
+PyJWT

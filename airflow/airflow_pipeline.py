@@ -6,22 +6,38 @@ import os
 import io
 import re
 import csv
+import ast
 import json
 import time
 import shutil
 import base64
 import logging
 import pymupdf
+import zipfile
 import pandas as pd
 import mysql.connector
 from dotenv import load_dotenv
 from unidecode import unidecode
 from google.cloud import storage
 from mysql.connector import Error
+from datetime import datetime
 from google.oauth2 import service_account
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from huggingface_hub import login, hf_hub_download, list_repo_files
+from adobe.pdfservices.operation.auth.service_principal_credentials import ServicePrincipalCredentials
+from adobe.pdfservices.operation.exception.exceptions import ServiceApiException, ServiceUsageException, SdkException
+from adobe.pdfservices.operation.io.cloud_asset import CloudAsset
+from adobe.pdfservices.operation.io.stream_asset import StreamAsset
+from adobe.pdfservices.operation.pdf_services import PDFServices
+from adobe.pdfservices.operation.pdf_services_media_type import PDFServicesMediaType
+from adobe.pdfservices.operation.pdfjobs.jobs.extract_pdf_job import ExtractPDFJob
+from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_element_type import ExtractElementType
+from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.table_structure_type import TableStructureType
+from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_renditions_element_type import ExtractRenditionsElementType
+from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_pdf_params import ExtractPDFParams
+from adobe.pdfservices.operation.pdfjobs.result.extract_pdf_result import ExtractPDFResult
+
 
 
 # Load the environment variables
@@ -328,8 +344,8 @@ def fileParser_driver_func():
     load_dotenv()
 
     bucket_name = os.getenv("BUCKET_NAME")
-    test_blob_name = os.getenv("GCP_FILES_PATH") + os.getenv("TEST_FILE_PATH") + os.getenv("METADATA_FILENAME")
-    validation_blob_name = os.getenv("GCP_FILES_PATH") + os.getenv("VALIDATION_FILE_PATH") + os.getenv("METADATA_FILENAME")
+    test_blob_name = os.path.join(os.getenv("GCP_FILES_PATH"), os.getenv("TEST_FILE_PATH"), os.getenv("METADATA_FILENAME"))
+    validation_blob_name = os.path.join(os.getenv("GCP_FILES_PATH"), os.getenv("VALIDATION_FILE_PATH"), os.getenv("METADATA_FILENAME"))
     test_json_path = os.getenv("TEST_METADATA_FILENAME") 
     validation_json_path = os.getenv("VALIDATION_METADATA_FILENAME")
     gcp_csv_filepath = os.getenv("GCP_CSV_PATH")
@@ -1378,6 +1394,293 @@ def cloud_uploader_azure():
         logger.info("Azure - cloud_uploader_azure() - Uploading content to database and GCS successful")
 
 
+def download_file_from_gcs(bucket_name, gcp_files_path, file_name, creds_file_path, download_folder):
+    logger.info("Adobe - pdfDownloader_driver_func() -  download_file_from_gcs() - Downloading each pdf files from the folder")
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials=creds)
+    bkt = client.bucket(bucket_name)
+
+    logger.info(f"Adobe - pdfDownloader_driver_func() -  download_file_from_gcs() - Downloading: {file_name}")
+    blob = bkt.blob(file_name)
+
+    # Create the download directory if it doesn't exist
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)  # Create the folder
+
+    # Download the file to the download folder
+    destination_file_path = os.path.join(download_folder, os.path.basename(file_name))  # Full path for the downloaded file
+    blob.download_to_filename(destination_file_path)  # Download the blob to the destination path
+    logger.info(f"Adobe - pdfDownloader_driver_func() -  download_file_from_gcs() - Downloaded to: {destination_file_path}")
+
+def download_pdf_files_for_adobe(bucket_name, gcp_files_path, folder_name, creds_file_path, download_folder):
+    logger.info("Adobe - pdfDownloader_driver_func() -  download_pdf_files()")
+    logger.info(f"Adobe - pdfDownloader_driver_func() -  download_pdf_files() - Downloading files from {bucket_name}/{gcp_files_path}/{folder_name}")
+    creds = service_account.Credentials.from_service_account_file(creds_file_path)
+    client = storage.Client(credentials=creds)
+    bkt = client.bucket(bucket_name)
+
+    # Construct the correct prefix without duplication
+    prefix = os.path.join(gcp_files_path, folder_name)  # This should create 'files/test' or 'files/validation'
+    logger.info(f"Adobe - pdfDownloader_driver_func() -  download_pdf_files() - Using prefix: {prefix}")  # Log the prefix being used
+
+    # List all blobs with the specified prefix
+    blobs = bkt.list_blobs(prefix=prefix)
+
+    # Log all blobs found for debugging
+    logger.info("Adobe - pdfDownloader_driver_func() -  download_pdf_files() - Listing all blobs found:")
+    for blob in blobs:
+        logger.info(f"Adobe - pdfDownloader_driver_func() -  download_pdf_files() - Blob found: {blob.name}")  # Log the names of all blobs found
+
+    # Reset the blobs generator
+    blobs = bkt.list_blobs(prefix=prefix)  # Re-initialize to list blobs again
+
+    file_count = 0  # Track number of files found
+
+    for blob in blobs:
+        if blob.name.lower().endswith('.pdf'):  # Ensure case insensitivity
+            file_count += 1
+            logger.info(f"Adobe - pdfDownloader_driver_func() -  download_pdf_files() - Found PDF: {blob.name}")
+            download_file_from_gcs(bucket_name, gcp_files_path, blob.name, creds_file_path, download_folder)
+
+    logger.info(f"Adobe - pdfDownloader_driver_func() -  download_pdf_files() - Total PDFs found: {file_count}")
+    if file_count == 0:
+        logger.warning("Adobe - pdfDownloader_driver_func() -  download_pdf_files() - No PDF files found in the specified directory.")
+
+def pdfDownloader_driver_func():
+    load_dotenv()
+    logger.info("Adobe - pdfDownloader_driver_func() - Inside pdfDownloader_driver_func() function")
+    logger.info("Adobe - pdfDownloader_driver_func() - Downloading PDF files from GCS to local")
+
+    # Environment variables
+    bucket_name = os.getenv("BUCKET_NAME")
+    gcp_files_path = os.getenv("GCP_FILES_PATH")
+    test_files_path = os.getenv("TEST_FILE_PATH")
+    validation_files_path = os.getenv("VALIDATION_FILE_PATH")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+
+    # Create a folder for downloaded PDFs
+    download_folder = os.path.join(os.getcwd(), 'downloaded_pdfs')
+
+    download_pdf_files_for_adobe(bucket_name, gcp_files_path, test_files_path, creds_file_path, download_folder)
+    download_pdf_files_for_adobe(bucket_name, gcp_files_path, validation_files_path, creds_file_path, download_folder)
+    logger.info("Adobe - pdfDownloader_driver_func() - All PDF files successfully downloaded from GCS to local")
+
+class ExtractTextInfoFromPDF:
+    def __init__(self, pdf_file):
+        logger.info("Adobe - adobeExtractor_driver_func() - ExtractTextInfoFromPDF - process_all_pdfs_in_directory")
+        self.pdf_file = pdf_file
+        self.zip_file = self.create_zip_file_path()
+
+        try:
+            with open(self.pdf_file, 'rb') as file:
+                input_stream = file.read()
+
+            with open('Adobe_Credentials.json', 'r') as file:
+                credentials = json.load(file)
+
+            # Initial setup, create credentials instance
+            credentials = ServicePrincipalCredentials(
+                client_id=credentials['CLIENT_ID'],
+                client_secret=credentials['CLIENT_SECRETS'][0]
+            )
+
+            # Creates a PDF Services instance
+            pdf_services = PDFServices(credentials=credentials)
+
+            # Creates an asset from the source file and upload
+            input_asset = pdf_services.upload(input_stream=input_stream, mime_type=PDFServicesMediaType.PDF)
+
+            # Create parameters for the job
+            extract_pdf_params = ExtractPDFParams(
+                elements_to_extract=[ExtractElementType.TEXT, ExtractElementType.TABLES],
+                elements_to_extract_renditions=[ExtractRenditionsElementType.FIGURES],
+                table_structure_type=TableStructureType.CSV
+            )
+
+            # Creates a new job instance
+            extract_pdf_job = ExtractPDFJob(input_asset=input_asset, extract_pdf_params=extract_pdf_params)
+
+            # Submit the job and get the job result
+            location = pdf_services.submit(extract_pdf_job)
+            pdf_services_response = pdf_services.get_job_result(location, ExtractPDFResult)
+
+            # Get content from the resulting asset
+            result_asset: CloudAsset = pdf_services_response.get_result().get_resource()
+            stream_asset: StreamAsset = pdf_services.get_content(result_asset)
+
+            # Creates an output stream and copy stream asset's content to it
+            with open(self.zip_file, "wb") as file:
+                file.write(stream_asset.get_input_stream())
+
+            self.process_json_from_zip()
+
+        except (ServiceApiException, ServiceUsageException, SdkException) as e:
+            logger.warning(f"Adobe - adobeExtractor_driver_func() - ExtractTextInfoFromPDF - Exception encountered while executing operation on {self.pdf_file}: {e}")
+
+    def create_zip_file_path(self) -> str:
+        logger.info("Adobe - adobeExtractor_driver_func() - ExtractTextInfoFromPDF - create_zip_file_path")
+        now = datetime.now()
+        time_stamp = now.strftime("%Y-%m-%dT%H-%M-%S")
+        output_folder = os.path.join(os.getcwd(), 'output_folder')
+        # output_folder = "/Users/gomathyselvamuthiah/Desktop/ass2/airflow/output_folder"
+        os.makedirs(output_folder, exist_ok=True)
+        return f"{output_folder}/extract_{os.path.basename(self.pdf_file).replace('.pdf', '')}_{time_stamp}.zip"
+
+    def process_json_from_zip(self):
+        logger.info("Adobe - adobeExtractor_driver_func() - ExtractTextInfoFromPDF - process_json_from_zip")
+        # Read and extract data from the JSON file in the ZIP
+        with zipfile.ZipFile(self.zip_file, 'r') as archive:
+            jsonentry = archive.open('structuredData.json')
+            jsondata = jsonentry.read()
+            data = json.loads(jsondata)
+
+            for element in data.get("elements", []):
+                if element["Path"].endswith("/H1"):
+                    print(f"Text from {self.pdf_file}: {element['Text']}")
+
+def process_all_pdfs_in_directory(directory_path):
+    logger.info("Adobe - adobeExtractor_driver_func() - process_all_pdfs_in_directory() - Processing all the pdfs present in the directory")
+    for filename in os.listdir(directory_path):
+        if filename.endswith(".pdf"):
+            pdf_file_path = os.path.join(directory_path, filename)
+            logger.info(f"Adobe - adobeExtractor_driver_func() - process_all_pdfs_in_directory() - Processing file: {pdf_file_path}")
+            ExtractTextInfoFromPDF(pdf_file_path)
+    logger.info("Adobe - adobeExtractor_driver_func() - process_all_pdfs_in_directory() - All pdf contents are processed successfully")
+
+def adobeExtractor_driver_func():
+    logger.info("Adobe - adobeExtractor_driver_func() - Inside adobeExtractor_driver_func() function")
+    logger.info("Adobe - adobeExtractor_driver_func() - Extracting file contents from pdf files using Adobe")
+    downloaded_pdfs_folder = os.path.join(os.getcwd(), 'downloaded_pdfs')
+    # downloaded_pdfs_folder = '/Users/gomathyselvamuthiah/Desktop/ass2/airflow/downloaded_pdfs'
+    process_all_pdfs_in_directory(downloaded_pdfs_folder)
+    logger.info("Adobe - adobeExtractor_driver_func() - Extracting file contents from pdf files using Adobe executed successfully")
+
+
+
+
+def cloud_uploader_adobe():
+    logger.info("Adobe - clouduploader_adobe() - Inside clouduploader_adobe() function")
+    logger.info("Adobe - clouduploader_adobe() - Uploading file contents to the Database and files to GCS")
+
+    # Load environmental variables
+    bucket_name = os.getenv('BUCKET_NAME')
+    extracted_filepath = os.getenv('EXTRACTED_FILEPATH')
+    unzip_filepath = os.getenv("UNZIP_FILEPATH")
+    gcs_adobe_filepath = os.getenv("GCS_ADOBE_FILEPATH")
+    creds_file_path = os.getenv("GCS_CREDENTIALS_PATH")
+
+    conn = None
+    try:
+        # Google Cloud Storage Client
+        creds = service_account.Credentials.from_service_account_file(creds_file_path)
+        client = storage.Client(credentials=creds)
+        bucket = client.bucket(bucket_name)
+        logger.info("Adobe - clouduploader_adobe() - GCS Client for Adobe created successfully")
+
+        # Connecting to the Database
+        conn = create_connection()
+        if conn is None:
+            logger.error("Adobe - clouduploader_adobe() - Could not establish database connection")
+            return
+
+        # Path to extracted pdf content
+        zip_file_dir = os.path.join(os.getcwd(), extracted_filepath)
+        zip_file_list = os.listdir(zip_file_dir)
+        for zip_file in zip_file_list:
+            if zip_file.endswith('.zip'):
+                zip_file_path = os.path.join(zip_file_dir, zip_file)
+
+                pdf_base_name = os.path.splitext(os.path.basename(zip_file_path))[0]
+                logger.info(f"Adobe - clouduploader_adobe() - Processing PDF file: {pdf_base_name}")
+
+                # Create directories for CSV, JSON, and IMAGES
+                local_csv_dir = os.path.join(os.getcwd(), unzip_filepath, pdf_base_name, 'CSV')
+                local_json_dir = os.path.join(os.getcwd(), unzip_filepath, pdf_base_name, 'JSON')
+                local_images_dir = os.path.join(os.getcwd(), unzip_filepath, pdf_base_name, 'IMAGES')
+                os.makedirs(local_csv_dir, exist_ok=True)
+                os.makedirs(local_json_dir, exist_ok=True)
+                os.makedirs(local_images_dir, exist_ok=True)
+
+                logger.info(f'Adobe - clouduploader_adobe() - Unzipping {zip_file_path} for {pdf_base_name}')
+                with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                    for file in zip_ref.namelist():
+                        # Extract based on file type
+                        if file.endswith('.csv'):
+                            zip_ref.extract(file, local_csv_dir)
+                            logger.info(f'Adobe - clouduploader_adobe() - Extracted {file} to {local_csv_dir}')
+                        elif file.endswith('.json'):
+                            zip_ref.extract(file, local_json_dir)
+                            logger.info(f'Adobe - clouduploader_adobe() - Extracted {file} to {local_json_dir}')
+                        elif file.endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                            zip_ref.extract(file, local_images_dir)
+                            logger.info(f'Adobe - clouduploader_adobe() - Extracted {file} to {local_images_dir}')
+
+                # Create empty folders in GCS for CSV, JSON, and IMAGES
+                for folder in ['CSV', 'JSON', 'IMAGES']:
+                    empty_folder = os.path.join(gcs_adobe_filepath, pdf_base_name, folder)
+                    blob = bucket.blob(empty_folder + '/')
+                    blob.upload_from_string('')
+                    logger.info(f'Adobe - clouduploader_adobe() - Created empty GCS folder: gs://{bucket_name}/{empty_folder}')
+
+                # Upload extracted files to GCS
+                for local_dir, gcs_dir in [(local_csv_dir, 'CSV'), (local_json_dir, 'JSON'), (local_images_dir, 'IMAGES')]:
+                    for root, _, files in os.walk(local_dir):
+                        for file in files:
+                            local_file_path = os.path.join(root, file)
+                            gcs_file_path = os.path.join(gcs_adobe_filepath, pdf_base_name, gcs_dir, f"{pdf_base_name}_{file}")
+                            logger.info(f'Adobe - clouduploader_adobe() - Uploading {local_file_path} to gs://{bucket_name}/{gcs_file_path}')
+                            blob = bucket.blob(gcs_file_path)
+                            blob.upload_from_filename(local_file_path)
+                            logger.info(f'Adobe - clouduploader_adobe() - Uploaded {local_file_path} to gs://{bucket_name}/{gcs_file_path}')
+
+                # Process structuredData.json and insert into DB
+                json_dir = os.path.join(unzip_filepath, pdf_base_name, 'JSON')
+                structured_data_path = os.path.join(json_dir, 'structuredData.json')
+                if os.path.exists(structured_data_path):
+                    logger.info(f"Adobe - clouduploader_adobe() - Processing {structured_data_path}")
+
+                    with open(structured_data_path, 'r') as json_file:
+                        data = json.load(json_file)
+
+                    # # is_encrypted = data['extended_metadata'].get('is_encrypted', False)
+                    # is_encrypted_str = data['extended_metadata'].get('is_encrypted', '0')  # Default to '0' if not found
+                    is_encrypted = data['extended_metadata'].get('is_encrypted')
+                    page_count = data['extended_metadata'].get('page_count', 0)
+                    elements = data.get('elements', [])
+
+                    page_content = {}
+                    for element in elements:
+                        if 'Text' in element:
+                            page_id = int(element.get('Page', -1))
+                            if page_id != -1:
+                                page_content.setdefault(page_id, "")
+                                page_content[page_id] += element['Text']
+
+                    # Insert each page's content into DB
+                    insert_text_query = """
+                    INSERT INTO adobe_info (page_id, text, number_of_pages, is_encrypted, pdf_filename)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
+                    cursor = conn.cursor()
+
+                    for page_id, content in page_content.items():
+                        logger.info(f"SQL - clouduploader_adobe() - Inserting content for page {page_id}")
+                        cursor.execute(insert_text_query, (page_id, content, page_count, is_encrypted, pdf_base_name))
+                        conn.commit()
+
+                    logger.info(f"SQL - clouduploader_adobe() - Inserted all data for {pdf_base_name}")
+
+    except Exception as e:
+        logger.error(f"Adobe - clouduploader_adobe() - Error: {e}")
+        raise e
+
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Adobe - clouduploader_adobe() - Database connection closed")
+        logger.info("Adobe - clouduploader_adobe() - Upload completed successfully")
+
+
 # DAG configuration
 default_args = {
     'owner'     : 'airflow',
@@ -1441,6 +1744,23 @@ with DAG(
         task_id='cloud_uploader_azure',
         python_callable=cloud_uploader_azure
     )
+
+    pdf_downloader_adobe_task = PythonOperator(
+        task_id='pdfDownloader_driver_func',
+        python_callable=pdfDownloader_driver_func
+    )
+
+    abode_extractor_task = PythonOperator(
+        task_id='adobeExtractor_driver_func',
+        python_callable=adobeExtractor_driver_func
+    )
+
+    cloud_uploader_adobe_task = PythonOperator(
+        task_id='cloud_uploader_adobe',
+        python_callable=cloud_uploader_adobe
+    )
+
+
     
     # Task Dependencies
-    download_pdf_task >> fileLoader_task >> fileParser_task >> azure_pdfFileExtractor >> extract_pymupdf_task >> extract_metadata_task >> setup_tables_task >> load_database_task >> cloud_uploader_pymupdf_task >> cloud_uploader_azure_task
+    download_pdf_task >> pdf_downloader_adobe_task >> fileLoader_task >> fileParser_task >> azure_pdfFileExtractor >> abode_extractor_task >> extract_pymupdf_task >> extract_metadata_task >> setup_tables_task >> load_database_task >> cloud_uploader_pymupdf_task >> cloud_uploader_azure_task >> cloud_uploader_adobe_task

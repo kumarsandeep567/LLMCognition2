@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 from typing import Optional, Any
 from mysql.connector import Error
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, status, Depends
+from fastapi import FastAPI, status, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 
 # Custom libraries
@@ -24,11 +25,33 @@ rectification_helper,       \
 extract_file_content,       \
 download_files_from_gcs,    \
 create_jwt_token,           \
-decode_jwt_token
+decode_jwt_token,           \
+validate_token
 
 # ============================= FastAPI : Begin =============================
 # Initialize FastAPI instance
-app = FastAPI()
+app = FastAPI(
+    openapi_tags = [{
+        "name": "auth", 
+        "description": "Authentication"
+    }],
+    openapi_security = [{
+        "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT"
+        }
+    }]
+)
+
+# OAuth2 scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
+
+# Security metadata for FastAPI app
+app.swagger_ui_init_oauth = {
+    "usePkceWithAuthorizationCodeGrant": True,
+    "useBasicAuthenticationWithAccessCodeGrant": True
+}
 
 # Enable CORS
 app.add_middleware(
@@ -100,16 +123,16 @@ class PromptType(str, Enum):
 
 class ListPrompt(BaseModel):
     type: PromptType
-    token: dict
     count: Optional[int] = None
 
+class LoadPrompt(BaseModel):
+    task_id: str
+
 class QueryGPT(BaseModel):
-    token: dict
     task_id: str
     updated_steps: Optional[str] = None
 
 class Feedback(BaseModel):
-    user_id: int
     task_id: str
     feedback: str
 
@@ -216,7 +239,7 @@ def store_tokens(conn, token: dict) -> bool:
 
     finally:
         return token_saved
-
+    
 
 # Route for user registration
 @app.post("/register")
@@ -481,11 +504,49 @@ def reset_password(reset_data: PasswordReset) -> JSONResponse:
                 logger.info("Database - Connection to the database was closed")
 
         return JSONResponse(content=response)
+    
+# Token verification wrapper function
+async def verify_token(token: str = Depends(oauth2_scheme)) -> str:
+    '''A wrapper to validate the tokens in the request headers'''
+
+    if not token:
+        raise HTTPException(
+            status_code  = status.HTTP_401_UNAUTHORIZED,
+            detail       = {
+                'status'    : status.HTTP_204_NO_CONTENT,
+                'type'      : "string",
+                'message'   : "Missing authentication token"
+            },
+            headers      = {"WWW-Authenticate": "Bearer"},
+        )
+
+    if validate_token(token):
+        raise HTTPException(
+            status_code  = status.HTTP_401_UNAUTHORIZED,
+            detail       = {
+                'status'    : status.HTTP_401_UNAUTHORIZED,
+                'type'      : "string",
+                'message'   : "Invalid or expired token"
+            },
+            headers      = {"WWW-Authenticate": "Bearer"},
+        )
+    
+    return token
 
 
 # Route for listing prompts
-@app.get("/listprompts/")
-def list_prompts(prompt: ListPrompt = Depends()) -> JSONResponse:
+@app.get("/listprompts",
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Returns a list of prompts and their task_ids based on query parameters"}
+    }
+)
+def list_prompts(
+    prompt: ListPrompt = Depends(),
+    token: str = Depends(verify_token)
+) -> JSONResponse:
     '''Fetch "x" number of prompts of type 'type' from the database'''
 
     if prompt.count is None:
@@ -546,8 +607,18 @@ def list_prompts(prompt: ListPrompt = Depends()) -> JSONResponse:
 
 
 # Route for fetching all details about a prompt
-@app.get("/loadprompt/{task_id}")
-def loadprompt(task_id: str) -> JSONResponse:
+@app.get("/loadprompt/{task_id}",
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Returns all available data about a task_id"}
+    }
+)
+def loadprompt(
+    task_id: str,
+    token: str = Depends(verify_token)
+) -> JSONResponse:
     '''Load all information from the database regarding the given prompt'''
 
     logger.info(f"GET - /loadprompt/{task_id} request received")
@@ -582,7 +653,7 @@ def loadprompt(task_id: str) -> JSONResponse:
                     return JSONResponse({
                         'status'    : status.HTTP_404_NOT_FOUND,
                         'type'      : "string",
-                        'message'   : f"Could not fetch the details for the given task_id (not found) {task_id}"
+                        'message'   : f"Could not fetch the details for the given task_id (not found) {task.task_id}"
                     })
 
                 conn.close()
@@ -610,8 +681,18 @@ def loadprompt(task_id: str) -> JSONResponse:
 
 
 # Route for fetching annotation details for a prompt
-@app.get("/getannotation/{task_id}")
-def getannotation(task_id: str) -> JSONResponse:
+@app.get("/getannotation/{task_id}",
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Returns annotation data for a task_id"}
+    }
+)
+def getannotation(
+    task_id: str,
+    token: str = Depends(verify_token)
+) -> JSONResponse:
     '''Load the annotation from the database regarding the given prompt'''
 
     logger.info(f"GET - /loadprompt/{task_id} request received")
@@ -727,8 +808,18 @@ def update_analytics(data: dict) -> bool:
 
 
 # Route for querying GPT
-@app.post("/querygpt")
-async def query_gpt(query: QueryGPT) -> JSONResponse:
+@app.post("/querygpt",
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Returns GPT's response and other required data as a JSON"}
+    }
+)
+async def query_gpt(
+    query: QueryGPT,
+    token: str = Depends(verify_token)
+) -> JSONResponse:
     '''Forward the question to OpenAI GPT4 and evaluate based on GAIA Benchmark'''
 
     logger.info(f"POST - /querygpt/{query.task_id} request received")
@@ -910,8 +1001,17 @@ async def query_gpt(query: QueryGPT) -> JSONResponse:
 
 
 # Route for saving feedback GPT
-@app.post("/feedback")
-def feedback(data: Feedback) -> dict[str, Any]:
+@app.post("/feedback", 
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Returns all feedback information for a user"}
+})
+def feedback(
+    data: Feedback,
+    token: str = Depends(verify_token)
+) -> dict[str, Any]:
     '''Save the user's feedback for GPT's response for the task_id'''
 
     logger.info(f"POST - /feedback/{data.task_id} request received")

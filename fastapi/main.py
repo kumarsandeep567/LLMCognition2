@@ -4,24 +4,27 @@ import base64
 import logging
 import datetime
 import mysql.connector
+from enum import Enum
 from openai import OpenAI
-from fastapi import FastAPI, status
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Optional, Any
 from mysql.connector import Error
 from fastapi.responses import JSONResponse
+from fastapi import FastAPI, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 # Custom libraries
-from helpers import     \
-get_password_hash,      \
-verify_password,        \
-count_tokens,           \
-generate_restriction,   \
-rectification_helper,   \
-extract_file_content,   \
-download_files_from_gcs
+from helpers import         \
+get_password_hash,          \
+verify_password,            \
+count_tokens,               \
+generate_restriction,       \
+rectification_helper,       \
+extract_file_content,       \
+download_files_from_gcs,    \
+create_jwt_token,           \
+decode_jwt_token
 
 # ============================= FastAPI : Begin =============================
 # Initialize FastAPI instance
@@ -91,8 +94,17 @@ class PasswordReset(BaseModel):
     email: str
     new_password: str
 
+class PromptType(str, Enum):
+    TEST = 'test'
+    VALIDATION = 'validation'
+
+class ListPrompt(BaseModel):
+    type: PromptType
+    token: dict
+    count: Optional[int] = None
+
 class QueryGPT(BaseModel):
-    user_id: int
+    token: dict
     task_id: str
     updated_steps: Optional[str] = None
 
@@ -177,6 +189,35 @@ def dbhealth() -> JSONResponse:
     return JSONResponse(content=response)
 
 
+def store_tokens(conn, token: dict) -> bool:
+    '''Store the newly generated token in the database'''
+
+    logger.info("INTERNAL - Request to store JWT token to the database received")
+    token_saved = False
+
+    try:
+        # Get the user_id from the token and save it to the users table
+        decoded_token = decode_jwt_token(token)
+        logger.info("SQL - Running a UPDATE statement")
+
+        with conn.cursor(dictionary=True) as cursor:
+            update_query = "UPDATE `users` SET jwt_token = %s WHERE user_id = %s"
+            
+            cursor.execute(update_query, (str(token['token']), decoded_token['user_id']))
+            conn.commit()
+        
+            logger.info("SQL - UPDATE statement complete")
+            logger.info("INTERNAL - Saved JWT token to the database")
+            token_saved = True
+
+    except Exception as exception:
+        logger.error("Error: store_tokens() encountered an error")
+        logger.error(exception)
+
+    finally:
+        return token_saved
+
+
 # Route for user registration
 @app.post("/register")
 def register(user: UserRegister) -> JSONResponse:
@@ -187,28 +228,29 @@ def register(user: UserRegister) -> JSONResponse:
 
     if conn is None:
         return JSONResponse({
-            'status'    : status.HTTP_503_SERVICE_UNAVAILABLE,
-            'type'      : "string",
-            'message'   : "Database not found :("
+            'status': status.HTTP_503_SERVICE_UNAVAILABLE,
+            'type': "string",
+            'message': "Database not found :("
         })
 
     if conn and conn.is_connected():
-        with conn.cursor(dictionary = True) as cursor:
+        with conn.cursor(dictionary=True) as cursor: 
+            
             try:
                 
                 # Check if email already exists
                 logger.info("SQL - Running a SELECT statement")
                 cursor.execute("SELECT * FROM users WHERE email = %s", (user.email,))
                 logger.info("SQL - SELECT statement complete")
-                
+
                 if cursor.fetchone():
                     conn.close()
                     logger.info("Database - Connection to the database was closed")
-
+                    
                     return JSONResponse({
-                        'status'    : status.HTTP_400_BAD_REQUEST,
-                        'type'      : "string",
-                        'message'   : "Email already registered. Please login."
+                        'status': status.HTTP_400_BAD_REQUEST,
+                        'type': "string",
+                        'message': "Email already registered. Please login."
                     })
 
                 # Hash the password
@@ -221,38 +263,55 @@ def register(user: UserRegister) -> JSONResponse:
                 VALUES (%s, %s, %s, %s, %s)
                 """
                 cursor.execute(query, (
-                    user.first_name, 
+                    user.first_name,
                     user.last_name, 
-                    user.phone, 
-                    user.email, 
-                    hashed_password
+                    user.phone,
+                    user.email,
+                    hashed_password 
                 ))
                 conn.commit()
                 logger.info("SQL - INSERT statement complete")
 
+                # Retrieve the ID of the newly registered user
                 new_user_id = cursor.lastrowid
                 logger.info(f"New user registered with ID: {new_user_id}")
 
-                response = {
-                    "status"    : status.HTTP_200_OK,
-                    'type'      : "string",
-                    "message"   : "User registered successfully",
-                    "user_id"   : new_user_id
+                # Create a JWT token for the new user
+                jwt_token = create_jwt_token({
+                    "user_id"   : new_user_id, 
+                    "email"     : user.email
+                })
+
+                token_saved = store_tokens(conn, jwt_token)
+
+                if token_saved:
+                    response = {
+                        "status"      : status.HTTP_200_OK,
+                        'type'        : "string",
+                        "message"     : jwt_token
+                    }
+                
+                else:
+                    response = {
+                    "status"      : status.HTTP_304_NOT_MODIFIED,
+                    'type'        : "string",
+                    "message"     : "Failed to save token to database"
                 }
+
 
             except Exception as exception:
                 logger.error("Error: register() encountered an error")
                 logger.error(exception)
                 response = {
-                    "status"    : status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    'type'      : "string",
-                    "message"   : "New user could not be registered. Something went wrong.",
+                    "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    'type': "string",
+                    "message": "New user could not be registered. Something went wrong.",
                 }
-                
+
             finally:
                 conn.close()
                 logger.info("Database - Connection to the database was closed")
-        
+
         return JSONResponse(content=response)
 
 
@@ -264,6 +323,7 @@ def login(user: UserLogin) -> JSONResponse:
     logger.info("POST - /login request received")
     conn = create_connection()
 
+    # Check if the database connection is successful
     if conn is None:
         return JSONResponse({
             'status'    : status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -272,9 +332,8 @@ def login(user: UserLogin) -> JSONResponse:
         })
 
     if conn and conn.is_connected():
-        with conn.cursor(dictionary = True) as cursor:
+        with conn.cursor(dictionary=True) as cursor:
             try:
-
                 # Fetch user by email
                 logger.info("SQL - Running a SELECT statement")
                 cursor.execute("SELECT * FROM users WHERE email = %s", (user.email,))
@@ -282,6 +341,7 @@ def login(user: UserLogin) -> JSONResponse:
 
                 db_user = cursor.fetchone()
 
+                # If user not found, return a 404 response
                 if db_user is None:
                     conn.close()
                     logger.info("Database - Connection to the database was closed")
@@ -299,13 +359,29 @@ def login(user: UserLogin) -> JSONResponse:
                         'type'      : "string",
                         'message'   : "Invalid email or password"
                     }
+
                 else:
-                    logger.info(f"User logged in: {db_user['user_id']}")
-                    response =  {
-                        "status"    : status.HTTP_200_OK,
-                        'type'      : "string",
-                        "message"   : "Login successful",
-                        "user_id"   : db_user['user_id']
+                    # Create a JWT token for the user after successful authentication
+                    jwt_token = create_jwt_token({
+                        "user_id"   : db_user['user_id'], 
+                        "email"     : db_user['email']
+                    })
+
+                    token_saved = store_tokens(conn, jwt_token)
+
+                    if token_saved:
+                        logger.info(f"User logged in: {db_user['user_id']}")
+                        response = {
+                            "status"      : status.HTTP_200_OK,
+                            'type'        : "string",
+                            "message"     : jwt_token
+                        }
+                    
+                    else:
+                        response = {
+                        "status"      : status.HTTP_304_NOT_MODIFIED,
+                        'type'        : "string",
+                        "message"     : "Failed to save token to database"
                     }
 
             except Exception as exception:
@@ -318,9 +394,11 @@ def login(user: UserLogin) -> JSONResponse:
                 }
 
             finally:
+                # Close the database connection
                 conn.close()
                 logger.info("Database - Connection to the database was closed")
 
+        # Return the JSON response containing the JWT token
         return JSONResponse(content=response)
 
 
@@ -406,16 +484,19 @@ def reset_password(reset_data: PasswordReset) -> JSONResponse:
 
 
 # Route for listing prompts
-@app.get("/listprompts")
-@app.get("/listprompts/{count}")
-def list_prompts(count: Optional[int] = None) -> dict[str, Any]:
-    '''Fetch "x" number of prompts from the database'''
+@app.get("/listprompts/")
+def list_prompts(prompt: ListPrompt = Depends()) -> JSONResponse:
+    '''Fetch "x" number of prompts of type 'type' from the database'''
 
-    if count is None:
-        logger.info("GET - /listprompts request received")
-        count = 5
+    if prompt.count is None:
+        logger.info(f"GET - /listprompts?type={prompt.type} request received")
+        prompt.count = 5
     else:
-        logger.info(f"GET - /listprompts/{count} request received")
+        logger.info(f"GET - /listprompts?type={prompt.type}&count={prompt.count} request received")
+    
+    prompt_type = 'validation'
+    if prompt.type == PromptType.TEST:
+        prompt_type = 'test'
 
     conn = create_connection()
 
@@ -432,7 +513,7 @@ def list_prompts(count: Optional[int] = None) -> dict[str, Any]:
                 logger.info("SQL - Running a SELECT statement")
 
                 # Fetch the task_id, question from the table
-                query = f"SELECT `task_id`, `question` FROM `gaia_features` LIMIT {count}"
+                query = f"SELECT `task_id`, `question` FROM `gaia_features` WHERE `dataset_type` = '{prompt_type}' AND `file_name` LIKE '%.pdf' LIMIT {prompt.count}"
                 result = cursor.execute(query)
                 rows = cursor.fetchall()
 
@@ -440,7 +521,7 @@ def list_prompts(count: Optional[int] = None) -> dict[str, Any]:
                     'status'    : status.HTTP_200_OK,
                     'type'      : "json",
                     'message'   : rows,
-                    'length'    : count
+                    'length'    : prompt.count
                 }
 
                 logger.info("SQL - SELECT statement complete")
@@ -583,7 +664,7 @@ def getannotation(task_id: str) -> JSONResponse:
                         'message'   : f"Could not fetch the annotation steps for the given task_id (not found) {task_id}"
                     })
                 
-                filtered_prompt = prompt_steps['Steps'].replace(final_answer['final_answer'], '___')
+                filtered_prompt = prompt_steps['Steps'].replace(final_answer['final_answer'], '_')
 
                 conn.close()
                 logger.info("Database - Connection to the database was closed")
@@ -612,7 +693,7 @@ def getannotation(task_id: str) -> JSONResponse:
 def update_analytics(data: dict) -> bool:
     '''Save GPT-4's response and some other data to the database'''
 
-    logger.info("INTERNAL - request to save response data to database received")
+    logger.info("INTERNAL - Request to save response data to database received")
     conn = create_connection()
     response = False
 
@@ -772,9 +853,12 @@ async def query_gpt(query: QueryGPT) -> JSONResponse:
             time_consumed = float('{:.3f}'.format(time_consumed))
             gpt_response = response.choices[0].message.content
 
+            # Get the user_id from the token
+            decoded_token = decode_jwt_token(query.token)
+
             # Save to analytics table
             response_data = {
-                "user_id"                   : query.user_id,
+                "user_id"                   : decoded_token['user_id'],
                 "task_id"                   : prompt['message']['task_id'],
                 "gpt_response"              : gpt_response,
                 "tokens_per_text_prompt"    : token_count,

@@ -764,9 +764,6 @@ def setup_tables() -> None:
             "drop_pymupdf_page_info_table"          : "DROP TABLE IF EXISTS pymupdf_page_info;",
             "drop_pymupdf_attachment_table"         : "DROP TABLE IF EXISTS pymupdf_attachments;",
             "drop_pymupdf_info_table"               : "DROP TABLE IF EXISTS pymupdf_info;",
-            "drop_adobe_attachment_mapping_table"   : "DROP TABLE IF EXISTS adobe_attachment_mapping;",
-            "drop_adobe_page_info_table"            : "DROP TABLE IF EXISTS adobe_page_info;",
-            "drop_adobe_attachment_table"           : "DROP TABLE IF EXISTS adobe_attachments;",
             "drop_adobe_info_table"                 : "DROP TABLE IF EXISTS adobe_info;",
             "drop_azure_info_table"                 : "DROP TABLE IF EXISTS azure_info;",
         },
@@ -847,46 +844,13 @@ def setup_tables() -> None:
                 );
             """,
             "create_adobe_info_table": """
-                CREATE TABLE adobe_info(
-                    pdf_id INT PRIMARY KEY AUTO_INCREMENT,
-                    file_name VARCHAR(255) NOT NULL,
-                    title VARCHAR(255) DEFAULT NULL,
-                    format varchar(255),
-                    creator VARCHAR(255) DEFAULT NULL,
-                    author VARCHAR(255) DEFAULT NULL,
-                    encryption VARCHAR(20) DEFAULT NULL,
-                    number_of_pages INT,
-                    number_of_words INT,
-                    number_of_images INT,
-                    number_of_tables INT
-                );
-            """,
-            "create_adobe_page_info_table": """
-                CREATE TABLE adobe_page_info(
-                    info_id INT PRIMARY KEY AUTO_INCREMENT,
-                    page_id INT NOT NULL,
-                    text TEXT DEFAULT NULL,
-                    pdf_id INT NOT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES adobe_info(pdf_id),
-                    INDEX (page_id)
-                );
-            """,
-            "create_adobe_attachment_table": """
-                CREATE TABLE adobe_attachments(
-                    attachment_id INT PRIMARY KEY AUTO_INCREMENT,
-                    attachment_name VARCHAR(255) NOT NULL,
-                    attachment_url TEXT NOT NULL
-                );
-            """,
-            "create_adobe_attachment_mapping_table": """
-                CREATE TABLE adobe_attachment_mapping(
-                    mapping_id INT PRIMARY KEY AUTO_INCREMENT,
-                    pdf_id INT NOT NULL,
-                    page_id INT NOT NULL,
-                    attachment_id INT NOT NULL,
-                    FOREIGN KEY (pdf_id) REFERENCES adobe_info(pdf_id),
-                    FOREIGN KEY (page_id) REFERENCES adobe_page_info(page_id),
-                    FOREIGN KEY (attachment_id) REFERENCES adobe_attachments(attachment_id)
+                CREATE TABLE IF NOT EXISTS adobe_info(
+                info_id INT PRIMARY KEY AUTO_INCREMENT,
+                text TEXT DEFAULT NULL,
+                page_id INT NOT NULL,
+                is_encrypted TINYINT(1) DEFAULT 0,
+                number_of_pages INT NOT NULL,
+                pdf_filename VARCHAR(255) NOT NULL
                 );
             """,
             "create_azure_info_table": """

@@ -94,7 +94,7 @@ def create_jwt_token(data: dict) -> dict[str, Any]:
     
     token_dict = {
         'token'         : token,
-        'token_type'    : "bearer"
+        'token_type'    : "Bearer"
     }
 
     return token_dict
@@ -125,23 +125,21 @@ def decode_jwt_token(token: dict):
         )
     
 # Helper function to check if JWT token is expired
-def validate_token(token: dict):
+def validate_token(token: str) -> bool:
     '''Helper function to check if JWT token is expired'''
 
     is_expired = True
     try:
 
         payload = jwt.decode(
-            token['token'], 
+            token, 
             SECRET_KEY, 
             algorithms = ["HS256"]
         )
-
-        expiration = datetime.fromisoformat(payload['expiration'])
         
         # Check if token has expired
-        current_time = datetime.datetime.now(timezone.utc)
-        if current_time < expiration:
+        current_time = str(datetime.datetime.now(timezone.utc))
+        if current_time < payload['expiration']:
             is_expired = False
         
     except Exception as exception:

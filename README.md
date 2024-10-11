@@ -27,19 +27,21 @@ Gomathy Selvamuthiah | 002410534 | 33%
 Deepthi Nasika       | 002474582 | 33% 
 
 
-## Architecture Diagram
+## 1. Architecture Diagram - Airflow ETL Pipeline
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
 
 - Automate the data acquisition process for PDF files in the GAIA dataset
 - Processing list of PDF files from GAIA benchmarking validation & test datasets
 - Integrating it with the PDF Extractor tools either open source or API-based into the pipeline for efficient text extraction
 
-## Architecture Diagram
+## Architecture Diagram - Core Application
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
 
 - Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
 - User Registration & Login functionality, API endpoints with JWT authentication tokens
-- 
+- User data with their credentials, hashed passwords are stored into the Database
+- All the APIs respective to services are created with authentication in FastAPI
+- User-friendly Streamlit application with Question Answering Interface
 
 ## Project Goals
 ### 1. Airflow Pipelines
@@ -77,7 +79,6 @@ Implementation of business logic and services to be invoked by Streamlit.
     2. the Login & Registration Page allows users to authenticate their login securely,
     3. the Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file,
     4. the Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
-
 
 
 ### Deployment

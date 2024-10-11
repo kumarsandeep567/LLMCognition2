@@ -12,7 +12,8 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 4. Compare GPT's responses against the known correct answers from the GAIA dataset
 
 ## Live Application Link
-Streamlit application link: https://bigdataassignment1.streamlit.app/
+Streamlit application link: http://18.117.79.65:8501/
+Fast-API: http://18.117.79.65:8000/health
 
 ## Codelabs Link
 Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6

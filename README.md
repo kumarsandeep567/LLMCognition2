@@ -28,10 +28,9 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 - Output: 
 
 ### 3. Streamlit
-- Objective:
-- Tools:
-- Output: 
-
+- Objective: To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely. Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
+- Tools: Streamlit (web application framework), Requests (API calls for data retrieval).
+- Output: The Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual, the Login & Registration Page allows users to authenticate their login securely, the Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file, the Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
 
 
 ### 2. FastAPI

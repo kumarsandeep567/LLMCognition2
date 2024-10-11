@@ -108,9 +108,9 @@ FastAPI ensures that every response is returned in a consistent JSON format with
 
 
 ### Deployment
-Containerization of FastAPI and Streamlit applications using Docker.
-Deployment to a public cloud platform using Docker Compose.
-Ensuring public accessibility of the deployed applications.
+- Containerization of FastAPI and Streamlit applications using Docker. Deployment to a public cloud platform using Docker Compose. Ensuring public accessibility of the deployed applications.
+- The FastAPI and Streamlit are containerized using Docker, and orchestrated through docker compose and the Docker images are pushed to Docker Hub. For deploying the Docker containers, we use an Amazon Web Services (AWS) EC2 instance within the t3-medium tier, followed by the database being hosted on AWS Relational Database Service (RDS). 
+
 
 ## Data Source
 1. GAIA benchmark dataset: https://huggingface.co/datasets/gaia-benchmark/GAIA

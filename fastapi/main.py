@@ -1057,6 +1057,8 @@ def feedback(
             try:
 
                 # Update the analytics and save the feedback
+
+                decoded_token = decode_jwt_token(token)
                 logger.info("SQL - Running an UPDATE statement")
 
                 query = """
@@ -1067,7 +1069,7 @@ def feedback(
                 WHERE a.user_id = %s AND a.task_id = %s
                 """
 
-                cursor.execute(query, (data.feedback, data.user_id, data.task_id))
+                cursor.execute(query, (data.feedback, decoded_token['user_id'], data.task_id))
                 conn.commit()
                 logger.info("SQL - UPDATE statement complete")
                 response = {

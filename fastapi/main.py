@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import base64
 import logging
 import datetime
@@ -128,8 +129,14 @@ class ListPrompt(BaseModel):
 class LoadPrompt(BaseModel):
     task_id: str
 
+class ExtractionService(str, Enum):
+    PYMUPDF = "pymupdf"
+    ADOBE = "adobe"
+    AZURE = "azure"
+
 class QueryGPT(BaseModel):
     task_id: str
+    service: ExtractionService
     updated_steps: Optional[str] = None
 
 class Feedback(BaseModel):
@@ -212,7 +219,7 @@ def dbhealth() -> JSONResponse:
     return JSONResponse(content=response)
 
 
-def store_tokens(conn, token: dict) -> bool:
+def store_tokens(conn, token: str) -> bool:
     '''Store the newly generated token in the database'''
 
     logger.info("INTERNAL - Request to store JWT token to the database received")
@@ -226,7 +233,7 @@ def store_tokens(conn, token: dict) -> bool:
         with conn.cursor(dictionary=True) as cursor:
             update_query = "UPDATE `users` SET jwt_token = %s WHERE user_id = %s"
             
-            cursor.execute(update_query, (str(token['token']), decoded_token['user_id']))
+            cursor.execute(update_query, (str(token), decoded_token['user_id']))
             conn.commit()
         
             logger.info("SQL - UPDATE statement complete")
@@ -305,7 +312,7 @@ def register(user: UserRegister) -> JSONResponse:
                     "email"     : user.email
                 })
 
-                token_saved = store_tokens(conn, jwt_token)
+                token_saved = store_tokens(conn, jwt_token['token'])
 
                 if token_saved:
                     response = {
@@ -390,7 +397,7 @@ def login(user: UserLogin) -> JSONResponse:
                         "email"     : db_user['email']
                     })
 
-                    token_saved = store_tokens(conn, jwt_token)
+                    token_saved = store_tokens(conn, jwt_token['token'])
 
                     if token_saved:
                         logger.info(f"User logged in: {db_user['user_id']}")
@@ -653,7 +660,7 @@ def loadprompt(
                     return JSONResponse({
                         'status'    : status.HTTP_404_NOT_FOUND,
                         'type'      : "string",
-                        'message'   : f"Could not fetch the details for the given task_id (not found) {task.task_id}"
+                        'message'   : f"Could not fetch the details for the given task_id (not found) {task_id}"
                     })
 
                 conn.close()
@@ -809,7 +816,6 @@ def update_analytics(data: dict) -> bool:
 
 # Route for querying GPT
 @app.post("/querygpt",
-    response_class  = JSONResponse,
     responses       = {
         401: {"description": "Invalid or expired token"},
         403: {"description": "Insufficient permissions"},
@@ -823,11 +829,20 @@ async def query_gpt(
     '''Forward the question to OpenAI GPT4 and evaluate based on GAIA Benchmark'''
 
     logger.info(f"POST - /querygpt/{query.task_id} request received")
+
+    # Set the extraction service
+    if query.service == ExtractionService.AZURE:
+        extraction_service = "azure"
+    elif query.service == ExtractionService.ADOBE:
+        extraction_service = "adobe"
+    else:
+        extraction_service = "pymupdf"
     
     try:
 
         # Get the prompt, apply restriction wherever needed, and send to GPT
         prompt = loadprompt(query.task_id)
+        prompt = json.loads(prompt.body)
 
         if prompt and prompt['status'] == status.HTTP_200_OK:
             
@@ -848,6 +863,7 @@ async def query_gpt(
                 {"role": "system", "content": "You are a helpful assistant that obeys the instructions given and provides the correct answers for any questions provided."},
                 {"role": "user", "content": full_question}
             ]
+
 
             # Prepare file parsing if available
             file_name = prompt['message']['file_name']
@@ -904,8 +920,12 @@ async def query_gpt(
                     elif file_name.lower().endswith(('.pdf', '.txt', '.xlsx', '.csv', '.jsonld', '.docx', '.py')):
                         
                         # Parse the files
-                        file_content = extract_file_content(file_path)
-                        
+                        file_content = extract_file_content(
+                            file_path, 
+                            extraction_service,
+                            prompt['message']['task_id']
+                        )
+
                         if file_content is not None:
                             messages.append({
                                 "role": "user",
@@ -945,7 +965,7 @@ async def query_gpt(
             gpt_response = response.choices[0].message.content
 
             # Get the user_id from the token
-            decoded_token = decode_jwt_token(query.token)
+            decoded_token = decode_jwt_token(token)
 
             # Save to analytics table
             response_data = {
@@ -955,7 +975,8 @@ async def query_gpt(
                 "tokens_per_text_prompt"    : token_count,
                 "tokens_per_attachment"     : file_token_count,
                 'total_cost'                : cost,
-                'time_consumed'             : time_consumed
+                'time_consumed'             : time_consumed,
+                'extraction_service'        : extraction_service if file_name is not None and file_name.endswith('.pdf') else None
             }
 
             if (query.updated_steps is not None) or (query.updated_steps != ''):
@@ -967,22 +988,24 @@ async def query_gpt(
                 logger.error("INTERNAL - Failed to save analytics data to database")
 
             json_response = {
-                "status"        : status.HTTP_200_OK,
-                "task_id"       : prompt['message']['task_id'],
-                "question"      : full_question,
-                "level"         : prompt['message']['level'],
-                "final_answer"  : prompt['message']['final_answer'],
-                "file_name"     : prompt['message']['file_name'],
-                "file_content"  : file_content,
-                "token_count"   : token_count,
-                "file_tokens"   : file_token_count,
-                "total_cost"    : cost,
-                "gpt_response"  : gpt_response
+                "status"                : status.HTTP_200_OK,
+                "task_id"               : prompt['message']['task_id'],
+                "question"              : full_question,
+                "level"                 : prompt['message']['level'],
+                "final_answer"          : prompt['message']['final_answer'],
+                "file_name"             : prompt['message']['file_name'],
+                "file_content"          : file_content,
+                "token_count"           : token_count,
+                "file_tokens"           : file_token_count,
+                "total_cost"            : cost,
+                "gpt_response"          : gpt_response,
+                'extraction_service'    : extraction_service if file_name is not None and file_name.endswith('.pdf') else None
             }
 
             # Get the annotation and append it to the json response
             logger.info(f"INTERNAL - Fetching annotation for task_id {prompt['message']['task_id']}")
             annotation = getannotation(prompt['message']['task_id'])
+            annotation = json.loads(annotation.body)
 
             if annotation["status"] == status.HTTP_200_OK:
                 json_response["annotation_steps"] = annotation["message"]
@@ -1006,7 +1029,7 @@ async def query_gpt(
     responses       = {
         401: {"description": "Invalid or expired token"},
         403: {"description": "Insufficient permissions"},
-        200: {"description": "Returns all feedback information for a user"}
+        200: {"description": "Records the user's feedback for GPT's performance for task_id"}
 })
 def feedback(
     data: Feedback,
@@ -1066,8 +1089,17 @@ def feedback(
 
 
 # Route for analytics
-@app.get("/analytics")
-async def get_analytics() -> JSONResponse:
+@app.get("/analytics",
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Returns all available data about a task_id"}
+    }
+)
+async def get_analytics(
+    token: str = Depends(verify_token)
+) -> JSONResponse:
     logger.info("GET - /analytics request received")
     conn = create_connection()
 

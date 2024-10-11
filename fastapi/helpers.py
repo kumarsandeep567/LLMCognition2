@@ -4,15 +4,17 @@ import jwt
 import docx
 import json
 import hmac
-import PyPDF2
+import time
 import hashlib
 import logging
 import openpyxl
 import tiktoken
 import datetime
+import mysql.connector
 from dotenv import load_dotenv
 from typing import Literal, Any
 from google.cloud import storage
+from mysql.connector import Error
 from passlib.context import CryptContext
 from datetime import timezone, timedelta
 from google.oauth2 import service_account
@@ -51,6 +53,42 @@ password_context = CryptContext(
     sha256_crypt__default_rounds    = int(os.getenv('SHA256_ROUNDS')),
     deprecated                      = "auto"
 )
+
+# Helper function connect to the MySQL database
+def create_connection(attempts = 3, delay = 2):
+    '''Start a connection with the MySQL database'''
+
+    # Database connection config
+    config = {
+        'user'              : os.getenv('DB_USER'),
+        'password'          : os.getenv('DB_PASSWORD'),
+        'host'              : os.getenv('DB_HOST'),
+        'database'          : os.getenv('DB_NAME'),
+        'raise_on_warnings' : True
+    }
+
+    # Attempt a reconnection routine
+    attempt = 1
+    
+    while attempt <= attempts:
+        try:
+            conn = mysql.connector.connect(**config)
+            logger.info("Database - Connection to the database was opened")
+            return conn
+        
+        except (Error, IOError) as error:
+            if attempt == attempts:
+                # Ran out of attempts
+                logger.error(f"Database - Failed to connect to database : {error}")
+                return None
+            else:
+                logger.warning(f"Database - Connection failed: {error} - Retrying {attempt}/{attempts} ...")
+                
+                # Delay the next attempt
+                time.sleep(delay ** attempt)
+                attempt += 1
+    
+    return None
 
 # Helper function to hash passwords
 def get_password_hash(password: str) -> str:
@@ -101,13 +139,13 @@ def create_jwt_token(data: dict) -> dict[str, Any]:
 
 
 # Function to decode the JWT token and verify its validity
-def decode_jwt_token(token: dict):
+def decode_jwt_token(token: str):
     '''Function to decode the JWT token and verify its validity'''
 
     try:
         # Decode the JWT token
         decoded_token = jwt.decode(
-            token['token'], 
+            token, 
             SECRET_KEY, 
             algorithms = ["HS256"]
         )
@@ -199,7 +237,11 @@ def json_serial(obj):
 
 
 # Helper function to extract contents from a file
-def extract_file_content(file_path: str) -> str:
+def extract_file_content(
+        file_path: str, 
+        extraction_service = None, 
+        task_id = None
+) -> str:
     """Extract content from various file types."""
     
     _, file_extension = os.path.splitext(file_path)
@@ -216,9 +258,131 @@ def extract_file_content(file_path: str) -> str:
 
         elif file_extension == '.pdf':
             logger.info("INTERNAL - Processing .pdf file")
-            with open(file_path, 'rb') as file:
-                reader = PyPDF2.PdfReader(file)
-                return ' '.join([page.extract_text() for page in reader.pages])
+            page_limit = 10
+
+            ############# PyMuPDF extraction service #############
+            
+            if extraction_service == "pymupdf":
+
+                logger.info(f"INTERNAL - extract_file_content() - Fetching page content for {task_id} for service {extraction_service}")
+
+                conn = create_connection()
+                if conn and conn.is_connected():
+                    with conn.cursor(dictionary=True) as cursor:
+
+                        # Fetch page_id and text for the PDF
+                        logger.info(f"INTERNAL - extract_file_content() - Running a SELECT statement")
+                        
+                        page_content_query = """
+                        SELECT page_info.page_id, page_info.text
+                        FROM pymupdf_info AS pdf_info, pymupdf_page_info AS page_info
+                        WHERE pdf_info.pdf_id = page_info.pdf_id AND pdf_info.file_name = %s LIMIT %s;
+                        """
+                        cursor.execute(page_content_query, (task_id, page_limit,))
+                        records = cursor.fetchall()
+
+                        logger.info(f"INTERNAL - extract_file_content() - SELECT statement completed")
+
+                        # Iterate over the response, and produce a text block 
+                        if records is not None:
+                            page_content = ""
+                            page = 0
+                            
+                            for list_item in records:
+                                for _, val in list_item.items():
+                                    page_content = page_content + str(val)
+                                
+                                page += 1
+
+                                # Max number of pages to consider
+                                if page == 10:
+                                    break
+                            
+                            logger.info(f"INTERNAL - extract_file_content() - Fetched page content for {task_id} for service {extraction_service}")
+                            return page_content
+                        
+            ############# Adobe extraction service #############
+
+            elif extraction_service == 'adobe':
+
+                logger.info(f"INTERNAL - extract_file_content() - Fetching page content for {task_id} for service {extraction_service}")
+
+                conn = create_connection()
+                if conn and conn.is_connected():
+                    with conn.cursor(dictionary=True) as cursor:
+
+                        # Fetch page_id and text for the PDF
+                        logger.info(f"INTERNAL - extract_file_content() - Running a SELECT statement")
+                        
+                        page_content_query = f"""
+                        SELECT * 
+                        FROM `adobe_info`
+                        WHERE `pdf_filename` LIKE '%{task_id}%' LIMIT {page_limit};
+                        """
+                        cursor.execute(page_content_query)
+                        records = cursor.fetchall()
+
+                        logger.info(f"INTERNAL - extract_file_content() - SELECT statement completed")
+
+                        # Iterate over the response, and produce a text block 
+                        if records is not None:
+                            page_content = ""
+                            page = 0
+                            
+                            for list_item in records:
+                                for _, val in list_item.items():
+                                    page_content = page_content + str(val)
+                                
+                                page += 1
+
+                                # Max number of pages to consider
+                                if page == 10:
+                                    break
+                            
+                            logger.info(f"INTERNAL - extract_file_content() - Fetched page content for {task_id} for service {extraction_service}")
+                            return page_content
+                        
+            ############# Azure extraction service #############
+
+            else:
+
+                logger.info(f"INTERNAL - extract_file_content() - Fetching page content for {task_id} for service {extraction_service}")
+
+                conn = create_connection()
+                if conn and conn.is_connected():
+                    with conn.cursor(dictionary=True) as cursor:
+
+                        # Fetch page_id and text for the PDF
+                        logger.info(f"INTERNAL - extract_file_content() - Running a SELECT statement")
+                        
+                        page_content_query = """
+                        SELECT * 
+                        FROM `azure_info`
+                        WHERE `pdf_filename` = %s LIMIT %s;
+                        """
+                        cursor.execute(page_content_query, (task_id, page_limit,))
+                        records = cursor.fetchall()
+
+                        logger.info(f"INTERNAL - extract_file_content() - SELECT statement completed")
+
+                        # Iterate over the response, and produce a text block 
+                        if records is not None:
+                            page_content = ""
+                            page = 0
+                            
+                            for list_item in records:
+                                for _, val in list_item.items():
+                                    page_content = page_content + str(val)
+                                
+                                page += 1
+
+                                # Max number of pages to consider
+                                if page == 10:
+                                    break
+                            
+                            logger.info(f"INTERNAL - extract_file_content() - Fetched page content for {task_id} for service {extraction_service}")
+                            return page_content
+
 
         elif file_extension == '.docx':
             logger.info("INTERNAL - Processing .docx file")

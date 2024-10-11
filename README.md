@@ -28,20 +28,21 @@ Deepthi Nasika       | 002474582 | 33%
 
 
 ## 1. Architecture Diagram - Airflow ETL Pipeline
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
-
 - Automate the data acquisition process for PDF files in the GAIA dataset
 - Processing list of PDF files from GAIA benchmarking validation & test datasets
 - Integrating it with the PDF Extractor tools either open source or API-based into the pipeline for efficient text extraction
+![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
+
 
 ## Architecture Diagram - Core Application
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
-
 - Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
 - User Registration & Login functionality, API endpoints with JWT authentication tokens
 - User data with their credentials, hashed passwords are stored into the Database
 - All the APIs respective to services are created with authentication in FastAPI
 - User-friendly Streamlit application with Question Answering Interface
+![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
+
+
 
 ## Project Goals
 ### 1. Airflow Pipelines

@@ -3,19 +3,17 @@
 ## OpenAI Model Evaluation Tool with PDF Extraction
 An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
 
-## Problem Statement
-As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:
-
-1. Automating the data acquisition process for PDF files by creating Airflow pipeline
-2. Automatically extract and process information from the GAIA dataset's PDF files
-3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
-4. Compare GPT's responses against the known correct answers from the GAIA dataset
-
 ## Live Application Link
-Streamlit application link: https://bigdataassignment1.streamlit.app/
+- Streamlit application link: http://18.117.79.65:8501/
+- FastAPI: http://18.117.79.65:8000/health
 
 ## Codelabs Link
-Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6
+Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#8
+
+## **Video of Submission**
+Demo Link: https://youtu.be/advkI-5NLoQ
+
+
 
 ## Attestation and Team Contribution
 **WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK**
@@ -26,6 +24,14 @@ Sandeep Suresh Kumar | 002841297 | 33% | PyMuPDF Extractor Tool, FastAPI, Docker
 Deepthi Nasika       | 002474582 | 33% | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup
 Gomathy Selvamuthiah | 002410534 | 33% | Adobe PDF Extractor Tool, Streamlit, Documentation
 Ramy Solanki         | 002816593 | 33% | JWT Implementation, DB Schema
+
+## Problem Statement
+As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:
+
+1. Automating the data acquisition process for PDF files by creating Airflow pipeline
+2. Automatically extract and process information from the GAIA dataset's PDF files
+3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
+4. Compare GPT's responses against the known correct answers from the GAIA dataset
 
 
 ## Architecture Diagram
@@ -39,9 +45,9 @@ Ramy Solanki         | 002816593 | 33% | JWT Implementation, DB Schema
 ### 2. Core Application
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
 
-- Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
+- Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto the S3 path
 - User Registration & Login functionality, API endpoints with JWT authentication tokens
-- User data with their credentials, hashed passwords are stored into the Database
+- User data with their credentials, and hashed passwords are stored in the Database
 - All the APIs respective to services are created with authentication in FastAPI
 - User-friendly Streamlit application with Question Answering Interface
 
@@ -57,7 +63,7 @@ Ramy Solanki         | 002816593 | 33% | JWT Implementation, DB Schema
 - Open Source PDF Extractor tool - PyMuPDF
 - API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
 #### 3. Output
-- Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
+- Extracted data from pdf files is stored in Amazon RDS in a formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
 - Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
 
 ### FastAPI
@@ -107,9 +113,9 @@ FastAPI ensures that every response is returned in a consistent JSON format with
 
 
 ### Deployment
-Containerization of FastAPI and Streamlit applications using Docker.
-Deployment to a public cloud platform using Docker Compose.
-Ensuring public accessibility of the deployed applications.
+- Containerization of FastAPI and Streamlit applications using Docker. Deployment to a public cloud platform using Docker Compose. Ensuring public accessibility of the deployed applications.
+- The FastAPI and Streamlit are containerized using Docker, and orchestrated through docker compose and the Docker images are pushed to Docker Hub. For deploying the Docker containers, we use an Amazon Web Services (AWS) EC2 instance within the t3-medium tier, followed by the database being hosted on AWS Relational Database Service (RDS). 
+
 
 ## Data Source
 1. GAIA benchmark dataset: https://huggingface.co/datasets/gaia-benchmark/GAIA

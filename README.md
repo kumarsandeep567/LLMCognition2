@@ -10,6 +10,11 @@ Fast-API: http://18.117.79.65:8000/health
 ## Codelabs Link
 Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6
 
+##**Video of Submission**
+https://youtu.be/advkI-5NLoQ
+
+
+
 ## Attestation and Team Contribution
 **WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK**
 
@@ -40,9 +45,9 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 ### 2. Core Application
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
 
-- Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
+- Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto the S3 path
 - User Registration & Login functionality, API endpoints with JWT authentication tokens
-- User data with their credentials, hashed passwords are stored into the Database
+- User data with their credentials, and hashed passwords are stored in the Database
 - All the APIs respective to services are created with authentication in FastAPI
 - User-friendly Streamlit application with Question Answering Interface
 
@@ -58,7 +63,7 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 - Open Source PDF Extractor tool - PyMuPDF
 - API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
 #### 3. Output
-- Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
+- Extracted data from pdf files is stored in Amazon RDS in a formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
 - Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
 
 ### FastAPI

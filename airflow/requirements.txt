@@ -1,0 +1,8 @@
+pandas
+python-dotenv
+huggingface-hub
+pymupdf
+Unidecode
+mysql-connector-python
+google-cloud-storage
+azure-ai-formrecognizer

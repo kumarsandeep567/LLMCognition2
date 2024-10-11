@@ -11,6 +11,36 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
 4. Compare GPT's responses against the known correct answers from the GAIA dataset
 
+## Google Cloud Storage links
+1. GCS bucket link: https://console.cloud.google.com/storage/browser/gaia_benchmark2
+2. GCS File Storage Path: https://console.cloud.google.com/storage/browser/gaia_benchmark2/files
+3. GCS Adobe FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/adobe_doc_extract
+4. GCS Azure FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/azure_doc_extract
+5. GCS PyMuPDF FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/pymupdf_doc_extract
+
+## Live Application Link
+Streamlit application link: https://bigdataassignment1.streamlit.app/
+
+## Codelabs Link
+Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6
+
+## Attestation and Team Contribution
+**WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK**
+
+Name | NUID | Contribution% 
+--- | --- | --- |
+Sandeep Suresh Kumar | 002841297 | 33% 
+Gomathy Selvamuthiah | 002410534 | 33% 
+Deepthi Nasika       | 002474582 | 33% 
+
+
+## Architecture Diagram
+![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
+
+## Architecture Diagram
+![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
+
+
 ## Project Goals
 ### 1. Airflow Pipelines
 - Objective: Streamline the process of retrieving, extracting content and processing a list of PDF files from GAIA benchmarking test and validation datasets with the choosen text extraction tool. Integration of both open-source (ex: PyMuPDF) and API-based (ex: Adobe PDF Extract, Azure AI Document Intelligence) text extraction methods ensuring the extracted information is accurately populated into the data storage (ex: AWS S3, Google Cloud Storage)
@@ -25,15 +55,7 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 ### 2. FastAPI
 - Objective:
 - Tools:
-- Output: 
-
-### 3. Streamlit
-- Objective: To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely. Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
-- Tools: Streamlit (web application framework), Requests (API calls for data retrieval).
-- Output: The Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual, the Login & Registration Page allows users to authenticate their login securely, the Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file, the Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
-
-
-### 2. FastAPI
+- Output:
 Objective: Implement secure backend services and business logic.
 Features:
 User registration and login with JWT authentication.
@@ -41,56 +63,30 @@ Protected API endpoints (except for registration and login).
 Integration with SQL database for user management.
 Implementation of business logic and services to be invoked by Streamlit.
 
-### 3. Streamlit
-Objective: Provide a user-friendly interface for model evaluation and question answering.
-Features:
-User registration and login interface.
-Question Answering interface with PDF selection capability.
-Display of model responses and performance metrics.
-
-4. Deployment
-Containerization of FastAPI and Streamlit applications using Docker.
-Deployment to a public cloud platform using Docker Compose.
-Ensuring public accessibility of the deployed applications.
-
-### 1. Airflow Pipeline
-- Objective: Extract data from Hugging Face GAIA benchmark dataset, formatting the textual data, loading it into the database, and loading all files into a bucket
-- Tools: For extraction of data from hugging face - huggingface_hub downloader, for storage - MySQL database, for file storage - Google Cloud Storage bucket
-- Output: Structured database in MySQL with all gaia_features, and gaia_annotations columns, formatted files stored in the google cloud storage bucket
-
-### 2. Fast API
 - Objective: The FastAPI application serves as an abstraction layer that hides all application processing, API calls to OpenAI, fetching data from MySQL database, downloading files from Google Cloud Storage Bucket.
 - Tools: MySQL database connector for interfacing with MySQL database, Google Cloud connector for downloading files from Google Cloud, OpenAI package for interacting with GPT (for text based content) and Whisper (for audio based content), tiktoken library for counting the number of tokens, PyPDF2 library for extracting content from PDF files, Base64 library for encoding images to text, openpyxl library for parsing MS Excel spreadsheets, docx library for parsing MS Word documents, dotenv library for setting environment variables, and json library for parsing json content.
 - Output: FastAPI ensures the response is always in a JSON format with HTTP status, message (response content), type (data type of response content), and additional fields (if needed)
 
+
+
 ### 3. Streamlit
-- Objective: To provide a user-friendly interface for validating GPT model responses by allowing users to compare generated responses with validation inputs, edit annotator steps, and provide feedback.
-- Tools: Streamlit (web application framework), Pandas (data manipulation), Matplotlib (visualization), NumPy (numerical computations), Requests (API calls for data fetching and sending).
-- Output: The Search Engine Page features a query input and result display; the Validation Page allows users to compare GPT responses and provide feedback; the Analytics Page presents user data with visualizations of cost efficiency and operational metrics.
-
-## Architecture Diagram
-
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment1/raw/main/diagram/llm_cognition.png)
-
-## Google Cloud Storage links
-1. GCS bucket link: https://console.cloud.google.com/storage/browser/gaia_benchmark
-2. GCS File Storage Path: https://storage.cloud.google.com/gaia_benchmark/files/file_name
-
-## Live Application Link
-Streamlit application link: https://bigdataassignment1.streamlit.app/
-
-## Codelabs Link
-Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=https://docs.google.com/document/d/1QsNQheQwEPl2ARqfzTyy77Sx9AKXMdM_8YSEY6-qCbU/edit#6
+- Objective: To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely. Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
+- Tools: Streamlit (web application framework), Requests (API calls for data retrieval).
+- Output:
+    1. The Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual,
+    2. the Login & Registration Page allows users to authenticate their login securely,
+    3. the Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file,
+    4. the Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
 
 
-## Attestation and Team Contribution
-**WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK**
 
-Name | NUID | Contribution% 
---- | --- | --- |
-Sandeep Suresh Kumar | 002841297 | 33% 
-Gomathy Selvamuthiah | 002410534 | 33% 
-Deepthi Nasika       | 002474582 | 33% 
+### Deployment
+Containerization of FastAPI and Streamlit applications using Docker.
+Deployment to a public cloud platform using Docker Compose.
+Ensuring public accessibility of the deployed applications.
+
+
+
 
 ## Technologies
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FD6A2B?style=for-the-badge&logo=huggingface&logoColor=white)](https://huggingface.co/)

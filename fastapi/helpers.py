@@ -206,7 +206,7 @@ def count_tokens(text: str) -> int:
 
 
 # Helper function to provide rectification strings
-def rectification_helper() -> Literal:
+def rectification_helper() -> str:
     '''Helper function to provide rectification strings'''
 
     return "The answer you provided is incorrect. I have attached the question and the steps to find the correct answer for the question. Please perform them and report the correct answer."
@@ -461,6 +461,7 @@ def download_files_from_gcs() -> bool:
 
             # Download the file
             blob.download_to_filename(local_file_path)
+            logger.info(f"INTERNAL - Downloaded {file_name} from GCP")
         
         download_status = True
         logger.info("INTERNAL - GCP file download completed")

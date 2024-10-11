@@ -157,35 +157,58 @@ Relational database management system that allows you to store and manage data e
 
 ## Project Structure
 ```
-Assignment1/
-├── backend/
+Assignment2/
+├── airflow/
 │   ├── .env.example
-│   ├── .gitignore
+│   ├── airflow_pipeline.py
+│   ├── azure_pdfFileExtractor.py
+│   ├── cloud_uploader.py
+│   ├── docker-compose.yaml
+│   ├── fileLoader.py
+│   ├── fileParser.py
+│   ├── pymupdf_content_extractor.py
+│   ├── requirements.txt
+├── diagram/
+│   ├──images/
+│   │   ├── Adobe.png
+│   │   ├── Azure.png
+│   │   ├── CSV.png
+│   │   ├── HuggingFace_logo.png
+│   │   ├── JSON.png
+│   │   ├── JSON_CSV_PNG.png
+│   │   ├── OpenAI.png
+│   │   ├── PDF_documents.png
+│   │   ├── PNG.png
+│   │   └── PyMuPDF.png
+│   ├── airflow_architecture.py
+│   ├── airflow_etl_pipeline.png
+│   ├── core_app_architecture.py
+│   ├── core_application_service.png
+│   └── requirements.txt
+├── fastapi/
+│   ├── .env.example
 │   ├── helpers.py
 │   ├── main.py
-│   ├── requirements.txt
-├── database_ETL/
-│   │   ├── .env.example
-│   │   ├── connectDB.py
-│   │   ├── fileLoader.py
-│   │   ├── jsonParser.py
-│   │   ├── main.py
-│   │   └── requirements.txt
-├── diagram/
-│   ├── diagram.py
-│   └── llm_cognition.png
+│   └── requirements.txt
 ├── streamlit/
 │   ├── .streamlit/
 │   │   ├── DBconnection.py
 │   │   └── config.toml
-│   ├── analytics.py
+│   ├── .env.example
 │   ├── app.py
+│   ├── homepage.py
 │   ├── loginpage.py
+│   ├── overview.py
+│   ├── registerpage.py
 │   ├── searchengine.py
-│   └── validation.py
+│   ├── validation.py
+│   └── requirements.txt
+├── .gitignore
 ├── LICENSE
 └── README.md
+
 ```
+
 ## How to run the application locally
 1. Clone the repository
   

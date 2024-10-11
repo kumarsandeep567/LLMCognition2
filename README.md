@@ -45,19 +45,26 @@ Deepthi Nasika       | 002474582 | 33%
 
 ## Project Goals
 ### 1. Airflow Pipelines
-- Objective: Streamline the process of retrieving, extracting content and processing a list of PDF files from GAIA benchmarking test and validation datasets with the choosen text extraction tool. Integration of both open-source (ex: PyMuPDF) and API-based (ex: Adobe PDF Extract, Azure AI Document Intelligence) text extraction methods ensuring the extracted information is accurately populated into the data storage (ex: AWS S3, Google Cloud Storage)
-- Tools:
-   1. Extraction of data from hugging face - huggingface_hub downloader, list_repo_files
-   2. Database - Amazon RDS MySQL
-   3. File storage - Google Cloud Storage
-   4. Open Source PDF Extractor tool - PyMuPDF
-   5. API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
-- Output: Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage. Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
+#### Objective
+1. Streamline the process of retrieving, extracting content and processing a list of PDF files from GAIA benchmarking test and validation datasets with the choosen text extraction tool.
+2. Integration of both open-source (ex: PyMuPDF) and API-based (ex: Adobe PDF Extract, Azure AI Document Intelligence) text extraction methods ensuring the extracted information is accurately populated into the data storage (ex: AWS S3, Google Cloud Storage)
+#### Tools
+1. Extraction of data from hugging face - huggingface_hub downloader, list_repo_files
+2. Database - Amazon RDS MySQL
+3. File storage - Google Cloud Storage
+4. Open Source PDF Extractor tool - PyMuPDF
+5. API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
+#### Output
+1. Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
+2. Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
 
 ### 2. FastAPI
-- Objective:
-- Tools:
-- Output:
+#### Objective
+
+#### Tools
+
+#### Output
+
 Objective: Implement secure backend services and business logic.
 Features:
 User registration and login with JWT authentication.
@@ -72,13 +79,18 @@ Implementation of business logic and services to be invoked by Streamlit.
 
 
 ### 3. Streamlit
-- Objective: To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely. Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
-- Tools: Streamlit (web application framework), Requests (API calls for data retrieval).
-- Output:
-    1. The Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual,
-    2. the Login & Registration Page allows users to authenticate their login securely,
-    3. the Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file,
-    4. the Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
+#### Objective
+1. To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely.
+2. Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
+
+#### Tools
+- Streamlit (web application framework), Requests (API calls for data retrieval)
+
+#### Output
+1. Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual,
+2. Login & Registration Page allows users to authenticate their login securely,
+3. Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file,
+4. Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
 
 
 ### Deployment

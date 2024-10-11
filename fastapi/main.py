@@ -133,6 +133,7 @@ class ExtractionService(str, Enum):
     PYMUPDF = "pymupdf"
     ADOBE = "adobe"
     AZURE = "azure"
+    NONE = "None"
 
 class QueryGPT(BaseModel):
     task_id: str
@@ -142,6 +143,9 @@ class QueryGPT(BaseModel):
 class Feedback(BaseModel):
     task_id: str
     feedback: str
+
+class MarkCorrect(BaseModel):
+    task_id: str
 
 
 def create_connection(attempts = 3, delay = 2):
@@ -1155,6 +1159,79 @@ async def get_analytics(
                 conn.close()
                 logger.info("Database - Connection to the database was closed")
         
+        return JSONResponse(content=response)
+    
+
+# Route to manually mark GPT's response as correct
+@app.post("/markcorrect",
+    response_class  = JSONResponse,
+    responses       = {
+        401: {"description": "Invalid or expired token"},
+        403: {"description": "Insufficient permissions"},
+        200: {"description": "Manually mark GPT's response for a prompt as correct"}
+    }
+)
+async def markcorrect(
+    query: MarkCorrect,
+    token: str = Depends(verify_token)
+) -> JSONResponse:
+    '''Manually mark GPT's response for a prompt as correct'''
+
+    logger.info("POST - /markcorrect request received")
+    conn = create_connection()
+
+    if conn is None:
+        return JSONResponse({
+            'status'    : status.HTTP_503_SERVICE_UNAVAILABLE,
+            'type'      : "string",
+            'message'   : "Database not found :("
+        })
+
+    if conn and conn.is_connected():
+        with conn.cursor(dictionary=True) as cursor:
+            try:
+
+                last_id_query = """
+                SELECT `id`
+                FROM `analytics`
+                WHERE `task_id` = %s ORDER BY `id` DESC LIMIT 1;
+                """
+                logger.info("SQL - markcorrect() - Running a SELECT statement")
+
+                cursor.execute(last_id_query, (query.task_id,))
+                last_id = cursor.fetchone()
+                logger.info("SQL - markcorrect() - SELECT statement complete")
+
+                update_query = """
+                UPDATE `analytics`
+                SET `marked_correct` = '1' 
+                WHERE `id` = %s
+                """
+                logger.info("SQL - markcorrect() - Running an UPDATE statement")
+
+                cursor.execute(update_query, (last_id['id'],))
+                conn.commit()
+                logger.info("SQL - markcorrect() - UPDATE statement complete")
+
+                response = {
+                    'status'    : status.HTTP_200_OK,
+                    'type'      : "json",
+                    'message'   : "Response marked as correct"
+                }
+            
+            except Exception as exception:
+                logger.error("Error: markcorrect() encountered an error")
+                logger.error(exception)
+                response = {
+                    'status'    : status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    'type'      : "string",
+                    'message'   : "Could not mark the response as correct. Something went wrong."
+                }
+            
+            finally:
+                conn.close()
+                logger.info("Database - Connection to the database was closed")
+
         return JSONResponse(content=response)
 
 # ====================== Application service : End ======================

@@ -11,13 +11,6 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
 4. Compare GPT's responses against the known correct answers from the GAIA dataset
 
-## Google Cloud Storage links
-1. GCS bucket link: https://console.cloud.google.com/storage/browser/gaia_benchmark2
-2. GCS File Storage Path: https://console.cloud.google.com/storage/browser/gaia_benchmark2/files
-3. GCS Adobe FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/adobe_doc_extract
-4. GCS Azure FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/azure_doc_extract
-5. GCS PyMuPDF FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/pymupdf_doc_extract
-
 ## Live Application Link
 Streamlit application link: https://bigdataassignment1.streamlit.app/
 
@@ -37,9 +30,16 @@ Deepthi Nasika       | 002474582 | 33%
 ## Architecture Diagram
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
 
+- Automate the data acquisition process for PDF files in the GAIA dataset
+- Processing list of PDF files from GAIA benchmarking validation & test datasets
+- Integrating it with the PDF Extractor tools either open source or API-based into the pipeline for efficient text extraction
+
 ## Architecture Diagram
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
 
+- Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
+- User Registration & Login functionality, API endpoints with JWT authentication tokens
+- 
 
 ## Project Goals
 ### 1. Airflow Pipelines
@@ -85,8 +85,15 @@ Containerization of FastAPI and Streamlit applications using Docker.
 Deployment to a public cloud platform using Docker Compose.
 Ensuring public accessibility of the deployed applications.
 
+## Data Source
+1. GAIA benchmark dataset: https://huggingface.co/datasets/gaia-benchmark/GAIA
 
-
+## Google Cloud Storage links
+1. GCS bucket link: https://console.cloud.google.com/storage/browser/gaia_benchmark2
+2. GCS File Storage Path: https://console.cloud.google.com/storage/browser/gaia_benchmark2/files
+3. GCS Adobe FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/adobe_doc_extract
+4. GCS Azure FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/azure_doc_extract
+5. GCS PyMuPDF FilePath: https://console.cloud.google.com/storage/browser/gaia_benchmark2/pymupdf_doc_extract
 
 ## Technologies
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FD6A2B?style=for-the-badge&logo=huggingface&logoColor=white)](https://huggingface.co/)
@@ -99,8 +106,6 @@ Ensuring public accessibility of the deployed applications.
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com/)
 
-## Data Source
-1. GAIA benchmark dataset: https://huggingface.co/datasets/gaia-benchmark/GAIA
 
 ## Prerequisites
 Software Installations required for the project

@@ -3,14 +3,6 @@
 ## OpenAI Model Evaluation Tool with PDF Extraction
 An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
 
-## Problem Statement
-As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:
-
-1. Automating the data acquisition process for PDF files by creating Airflow pipeline
-2. Automatically extract and process information from the GAIA dataset's PDF files
-3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
-4. Compare GPT's responses against the known correct answers from the GAIA dataset
-
 ## Live Application Link
 Streamlit application link: http://18.117.79.65:8501/
 Fast-API: http://18.117.79.65:8000/health
@@ -27,6 +19,14 @@ Sandeep Suresh Kumar | 002841297 | 33% | PyMuPDF Extractor Tool, FastAPI, Docker
 Deepthi Nasika       | 002474582 | 33% | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup
 Gomathy Selvamuthiah | 002410534 | 33% | Adobe PDF Extractor Tool, Streamlit, Documentation
 Ramy Solanki         | 002816593 | 33% | JWT Implementation, DB Schema
+
+## Problem Statement
+As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:
+
+1. Automating the data acquisition process for PDF files by creating Airflow pipeline
+2. Automatically extract and process information from the GAIA dataset's PDF files
+3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
+4. Compare GPT's responses against the known correct answers from the GAIA dataset
 
 
 ## Architecture Diagram

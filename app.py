@@ -2,7 +2,7 @@ import streamlit as st
 from loginpage import display_login_page
 from analytics import display_analytics_page
 from searchengine import display_search_engine
-from validation import display_validation_page
+from validations import display_validation_page
 
 def main():
     # Initialize session state for page navigation

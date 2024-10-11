@@ -1,6 +1,6 @@
 
 # Assignment 2
-GAIA Insight: OpenAI Model Evaluation against GAIA dataset
+## OpenAI Model Evaluation Tool with PDF Extraction
 An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
 
 ## Problem Statement
@@ -28,14 +28,15 @@ Gomathy Selvamuthiah | 002410534 | 33%
 Ramy Solanki         | 002474582 | 33% 
 
 
-## 1. Architecture Diagram - Airflow ETL Pipeline
+## Architecture Diagram
+### 1. Airflow ETL Pipeline
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
 
 - Automate the data acquisition process for PDF files in the GAIA dataset
 - Processing list of PDF files from GAIA benchmarking validation & test datasets
 - Integrating it with the PDF Extractor tools either open source or API-based into the pipeline for efficient text extraction
 
-## Architecture Diagram - Core Application
+### 2. Core Application
 ![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
 
 - Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
@@ -45,26 +46,26 @@ Ramy Solanki         | 002474582 | 33%
 - User-friendly Streamlit application with Question Answering Interface
 
 ## Project Goals
-### 1. Airflow Pipelines
-#### Objective
-1. Streamline the process of retrieving, extracting content and processing a list of PDF files from GAIA benchmarking test and validation datasets with the choosen text extraction tool.
-2. Integration of both open-source (ex: PyMuPDF) and API-based (ex: Adobe PDF Extract, Azure AI Document Intelligence) text extraction methods ensuring the extracted information is accurately populated into the data storage (ex: AWS S3, Google Cloud Storage)
-#### Tools
-1. Extraction of data from hugging face - huggingface_hub downloader, list_repo_files
-2. Database - Amazon RDS MySQL
-3. File storage - Google Cloud Storage
-4. Open Source PDF Extractor tool - PyMuPDF
-5. API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
-#### Output
-1. Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
-2. Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
+### Airflow Pipelines
+#### 1. Objective
+- Streamline the process of retrieving, extracting content and processing a list of PDF files from GAIA benchmarking test and validation datasets with the choosen text extraction tool.
+- Integration of both open-source (ex: PyMuPDF) and API-based (ex: Adobe PDF Extract, Azure AI Document Intelligence) text extraction methods ensuring the extracted information is accurately populated into the data storage (ex: AWS S3, Google Cloud Storage)
+#### 2. Tools
+- Extraction of data from hugging face - huggingface_hub downloader, list_repo_files
+- Database - Amazon RDS MySQL
+- File storage - Google Cloud Storage
+- Open Source PDF Extractor tool - PyMuPDF
+- API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
+#### 3. Output
+- Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage.
+- Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
 
-### 2. FastAPI
-#### Objective
+### FastAPI
+#### 1. Objective
 
-#### Tools
+#### 2. Tools
 
-#### Output
+#### 3. Output
 
 Objective: Implement secure backend services and business logic.
 Features:
@@ -79,19 +80,19 @@ Implementation of business logic and services to be invoked by Streamlit.
 
 
 
-### 3. Streamlit
-#### Objective
-1. To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely.
-2. Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
+### Streamlit
+#### 1. Objective
+- To provide a user-friendly question answering interface that enables users to ask questions or submit queries. User registration and login interface allows users to create accounts and login securely.
+- Functionalities that allows users to select from a variety of PDF Extract tools either open source or API-based to extract contents from PDF files attached to the question prompt are implemented. The OpenAI answers are compared with the correct answers to evaluate the performance of OpenAI models
 
-#### Tools
+#### 2. Tools
 - Streamlit (web application framework), Requests (API calls for data retrieval)
 
-#### Output
-1. Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual,
-2. Login & Registration Page allows users to authenticate their login securely,
-3. Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file,
-4. Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
+#### 3. Output
+- Home Page gives an overview of how to use OpenAI Model Evaluation Tool for users like a user-manual,
+- Login & Registration Page allows users to authenticate their login securely,
+- Search Engine page allows users to select dataset type, prompt from the list of prompts available, and PDF extraction tool to extract contents from the PDF file,
+- Validation page validates the OpenAI generated answer with the final answer in the database when the question prompt along with the pdf extracted text is given as prompt to OpenAI GPT model.
 
 
 ### Deployment
@@ -209,5 +210,48 @@ Assignment2/
 ```
 
 ## How to run the application locally
-1. Clone the repository
+1. **Clone the Repository**: Clone the repository onto your local machine.
+
+   ```bash
+   git clone https://github.com/BigDataIA-Spring2024-Sec1-Team4/Assignment2
+   ```
+
+2. **Create a Virtual Environment**: Set up a virtual environment to isolate project dependencies.
+
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activate the Virtual Environment**: Activate the virtual environment.
+
+   - **Windows**:
+
+     ```bash
+     venv\Scripts\activate
+     ```
+
+   - **Unix or MacOS**:
+
+     ```bash
+     source venv/bin/activate
+     ```
+4. **Host Grobid Server**: Open Docker Desktop and host the Grobid server. (Run this in a separate terminal)
+
+   ```bash
+    cd PDF_Extraction
+    git clone https://github.com/kermitt2/grobid_client_python
+    cd grobid_client_python
+    python3 setup.py install
+    docker run -t --rm -p 8070:8070 lfoppiano/grobid:0.8.0
+   ```
+
+5. **Run the Notebook Script**: Execute the `scheduler.py` python script to run the application. This step automates the process and runs all notebooks one after the other (Remember to add your .env files)
+
+   ```bash
+   cd PDF_Extraction
+   python scheduler.py
+   ```
+
+By following these steps, you will be able to run the application locally from scratch. Ensure that Docker Desktop is installed and running before hosting the Grobid server.
+## Team Information and Contribution 
   

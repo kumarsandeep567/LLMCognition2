@@ -17,12 +17,60 @@ Please avoid commiting to the `main` branch directly. Instead, create your own b
 
 
 # Assignment 2
-Development of an interactive tool using Streamlit that enables Model Evaluation team to evaluate the performance of OpenAI models against the test cases
+GAIA Insight: OpenAI Model Evaluation against GAIA dataset
+An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
 
 ## Problem Statement
-The project aims to evaluate the comprehension capabilities of a Large Language Model (LLM), specifically OpenAI's GPT-4o. This evaluation framework is inspired by the General AI Assistant (GAIA) dataset and benchmark, developed by researchers at Meta AI, Hugging Face, and AutoGPT. The Streamlit application facilitates a user-friendly experience, allowing users to assess model responses, modify metadata steps if necessary, and provide feedback on the model’s performance.
+As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:
+
+1. Automating the data acquisition process for PDF files by creating Airflow pipeline
+2. Automatically extract and process information from the GAIA dataset's PDF files
+3. Prompt GPT with questions, providing it with extracted content from PDF files and annotation metadata
+4. Compare GPT's responses against the known correct answers from the GAIA dataset
 
 ## Project Goals
+### 1. Airflow Pipelines
+- Objective: Streamline the process of retrieving, extracting content and processing a list of PDF files from GAIA benchmarking test and validation datasets with the choosen text extraction tool. Integration of both open-source (ex: PyMuPDF) and API-based (ex: Adobe PDF Extract, Azure AI Document Intelligence) text extraction methods ensuring the extracted information is accurately populated into the data storage (ex: AWS S3, Google Cloud Storage)
+- Tools:
+   1. Extraction of data from hugging face - huggingface_hub downloader, list_repo_files
+   2. Database - Amazon RDS MySQL
+   3. File storage - Google Cloud Storage
+   4. Open Source PDF Extractor tool - PyMuPDF
+   5. API-based PDF Extractor tool - Adobe PDF Extract, Azure AI Document Intelligence
+- Output: Extracted data from pdf files is stored in Amazon RDS in formatted manner. All the CSV, Images, JSON files extracted from the PDF using different PDF Extractor tools are stored in their respective folders under the pdf filename in Google Cloud Storage. Extracted text data which is in JSON is formatted into specific tables like pymupdf_info, adobe_info, azure_info. Prompt and annotation data from test and validation datasets are formatted into gaia_features and gaia_annotations table. Users information is being recorded in users table. All the tables are stored in Amazon RDS MySQL Database.
+
+### 2. FastAPI
+- Objective:
+- Tools:
+- Output: 
+
+### 3. Streamlit
+- Objective:
+- Tools:
+- Output: 
+
+
+
+### 2. FastAPI
+Objective: Implement secure backend services and business logic.
+Features:
+User registration and login with JWT authentication.
+Protected API endpoints (except for registration and login).
+Integration with SQL database for user management.
+Implementation of business logic and services to be invoked by Streamlit.
+
+### 3. Streamlit
+Objective: Provide a user-friendly interface for model evaluation and question answering.
+Features:
+User registration and login interface.
+Question Answering interface with PDF selection capability.
+Display of model responses and performance metrics.
+
+4. Deployment
+Containerization of FastAPI and Streamlit applications using Docker.
+Deployment to a public cloud platform using Docker Compose.
+Ensuring public accessibility of the deployed applications.
+
 ### 1. Airflow Pipeline
 - Objective: Extract data from Hugging Face GAIA benchmark dataset, formatting the textual data, loading it into the database, and loading all files into a bucket
 - Tools: For extraction of data from hugging face - huggingface_hub downloader, for storage - MySQL database, for file storage - Google Cloud Storage bucket

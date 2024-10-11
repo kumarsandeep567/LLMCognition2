@@ -11,7 +11,7 @@ An interactive application built using Streamlit to evaluate the performance of 
 Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6
 
 ## **Video of Submission**
-https://youtu.be/advkI-5NLoQ
+Demo Link: https://youtu.be/advkI-5NLoQ
 
 
 

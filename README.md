@@ -4,13 +4,13 @@
 An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
 
 ## Live Application Link
-Streamlit application link: http://18.117.79.65:8501/
-Fast-API: http://18.117.79.65:8000/health
+- Streamlit application link: http://18.117.79.65:8501/
+- Fast-API: http://18.117.79.65:8000/health
 
 ## Codelabs Link
 Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6
 
-##**Video of Submission**
+## **Video of Submission**
 https://youtu.be/advkI-5NLoQ
 
 

@@ -22,7 +22,7 @@ Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QF
 
 Name | NUID | Contribution% | Work_Contributed
 --- | --- | --- | --- |
-Sandeep Suresh Kumar | 002841297 | 33% | PyMuPDF Extractor Tool, FastAPI
+Sandeep Suresh Kumar | 002841297 | 33% | PyMuPDF Extractor Tool, FastAPI, Dockerization
 Deepthi Nasika       | 002474582 | 33% | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup
 Gomathy Selvamuthiah | 002410534 | 33% | Adobe PDF Extractor Tool, Streamlit
 Ramy Solanki         | 0 | 33% | JWT Implementation, DB Schema

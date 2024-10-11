@@ -5,7 +5,7 @@ An interactive application built using Streamlit to evaluate the performance of 
 
 ## Live Application Link
 - Streamlit application link: http://18.117.79.65:8501/
-- Fast-API: http://18.117.79.65:8000/health
+- FastAPI: http://18.117.79.65:8000/health
 
 ## Codelabs Link
 Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#6

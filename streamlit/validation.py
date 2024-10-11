@@ -28,6 +28,28 @@ def query_gpt(task_id, updated_steps=None):
     else:
         return {'status': response.status_code, 'message': 'Error fetching GPT response.'}
 
+
+# Function to record user's feedback
+def save_feedback(task_id, feedback):
+    data = { 
+        'task_id': task_id,
+        'feedback': feedback
+    }
+
+    auth_token = st.session_state['token']
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post('http://'+ os.getenv("HOSTNAME") +':8000/feedback', json=data, headers=headers)
+
+    if response.status_code == HTTPStatus.OK:
+        return True
+    else:
+        return False
+
+
 # Function to display the validation page and allow editing of annotator steps
 def display_validation_page():
     st.title("Response Validation")
@@ -68,7 +90,6 @@ def display_validation_page():
             response = query_gpt(task_id)
                 
             if response['status'] == HTTPStatus.OK:
-                st.write(response)
                 final_answer = response.get('final_answer', final_answer)
                 st.session_state['final_answer'] = final_answer
 
@@ -149,9 +170,12 @@ def display_validation_page():
 
     if st.button("Submit", key="submit_feedback_button"):
         if feedback_text.strip():
-            # Here, you would typically save the feedback to a database or handle it accordingly
-            st.success("Thank you for your feedback!")
-            # Optionally clear the feedback box after submission
+            is_saved = save_feedback(task_id, feedback_text)
+            
+            if is_saved:
+                st.success("Thank you for your feedback!")
+            else:
+                st.error("Failed to save feedback")
             st.session_state['feedback'] = feedback_text
             feedback_text = ""
         else:
@@ -160,7 +184,6 @@ def display_validation_page():
 def main():
     display_validation_page()
 
-# For testing purposes, you can initialize a session state like this:
 if __name__ == '__main__':
     if 'task_id' not in st.session_state:
         st.session_state['task_id'] = 'example_task_id'

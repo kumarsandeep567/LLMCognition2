@@ -20,12 +20,12 @@ Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QF
 ## Attestation and Team Contribution
 **WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK**
 
-Name | NUID | Contribution% 
---- | --- | --- |
-Sandeep Suresh Kumar | 002841297 | 33% 
-Deepthi Nasika       | 002474582 | 33% 
-Gomathy Selvamuthiah | 002410534 | 33% 
-Ramy Solanki         | 002474582 | 33% 
+Name | NUID | Contribution% | Work_Contributed
+--- | --- | --- | --- |
+Sandeep Suresh Kumar | 002841297 | 33% | PyMuPDF Extractor Tool, FastAPI
+Deepthi Nasika       | 002474582 | 33% | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup
+Gomathy Selvamuthiah | 002410534 | 33% | Adobe PDF Extractor Tool, Streamlit
+Ramy Solanki         | 0 | 33% | JWT Implementation, DB Schema
 
 
 ## Architecture Diagram
@@ -253,5 +253,4 @@ Assignment2/
    ```
 
 By following these steps, you will be able to run the application locally from scratch. Ensure that Docker Desktop is installed and running before hosting the Grobid server.
-## Team Information and Contribution 
   

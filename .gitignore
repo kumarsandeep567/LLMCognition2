@@ -1,4 +1,6 @@
 .env
+.cache
+2023
 AirflowPipeline.png
 CoreApplication.png
 *.log
@@ -7,3 +9,8 @@ Dockerfile
 test.py
 __pycache__
 dataset_files
+extracted_contents
+Dockerfile
+airflow_errors.log
+test.py
+bigdata-team6-project2-b58ad1c7ed38.json

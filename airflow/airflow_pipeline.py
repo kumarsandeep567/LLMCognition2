@@ -797,7 +797,8 @@ def setup_tables() -> None:
                     last_name VARCHAR(50) NOT NULL,
                     phone VARCHAR(15) NOT NULL,
                     email VARCHAR(100) NOT NULL,
-                    password VARCHAR(255) NOT NULL
+                    password VARCHAR(255) NOT NULL,
+                    jwt_token TEXT DEFAULT NULL
                 );
             """,
             "create_pymupdf_info_table": """

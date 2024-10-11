@@ -1715,7 +1715,7 @@ with DAG(
         python_callable=pdfDownloader_driver_func
     )
 
-    abode_extractor_task = PythonOperator(
+    adode_extractor_task = PythonOperator(
         task_id='adobeExtractor_driver_func',
         python_callable=adobeExtractor_driver_func
     )
@@ -1728,4 +1728,4 @@ with DAG(
 
     
     # Task Dependencies
-    download_pdf_task >> pdf_downloader_adobe_task >> fileLoader_task >> fileParser_task >> azure_pdfFileExtractor >> abode_extractor_task >> extract_pymupdf_task >> extract_metadata_task >> setup_tables_task >> load_database_task >> cloud_uploader_pymupdf_task >> cloud_uploader_azure_task >> cloud_uploader_adobe_task
+    download_pdf_task >> pdf_downloader_adobe_task >> fileLoader_task >> fileParser_task >> azure_pdfFileExtractor >> adode_extractor_task >> extract_pymupdf_task >> extract_metadata_task >> setup_tables_task >> load_database_task >> cloud_uploader_pymupdf_task >> cloud_uploader_azure_task >> cloud_uploader_adobe_task

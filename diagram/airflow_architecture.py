@@ -1,13 +1,13 @@
 from diagrams import Diagram, Cluster, Edge
 from diagrams.onprem.workflow import Airflow
 from diagrams.gcp.storage import Storage
-from diagrams.gcp.database import SQL
+from diagrams.aws.database import RDS
 from diagrams.custom import Custom
 
 with Diagram("Airflow ETL Pipeline", show=False):
     
     with Cluster("Data Source"):
-        hugging_face_data = Custom("Hugging Face\nGAIA Dataset\n(PDF Documents)", "./images/HuggingFace_logo.png")
+        hugging_face_data = Custom("Hugging Face\nGAIA Dataset\n", "./images/HuggingFace_logo.png")
 
     with Cluster("Content Extraction Service", direction="TB"):
         pymupdf = Custom("PyMuPDF\n(Open Source)", "./images/PyMuPDF.png")
@@ -21,9 +21,12 @@ with Diagram("Airflow ETL Pipeline", show=False):
     # Define Nodes
     hugging_face_downloader = Airflow("HF File Downloader\n(Airflow Function)")
     pdf_docs = Custom("PDF documents", "./images/PDF_documents.png")
+    fileLoader = Airflow("File Loader\n(Airflow Function)")
+    fileParser = Airflow("File Parser\n(Airflow Function)")
     content_handler = Airflow("Content Handler\n(Airflow Function)")
+    setupTables = Airflow()
     extracted_contents = Custom("Extracted Contents", "./images/JSON_CSV_PNG.png")
-    gcp_sql = SQL("Google Cloud SQL\n(Text, JSON, URLs,\nUser data, Analytics)")
+    gcp_sql = RDS("AWS RDS\n(Text, JSON, \nUser data, Analytics)")
     gcp_storage = Storage("Google Cloud Storage Bucket\n(CSV, Images, Audio, Video)")
 
     # Define connections

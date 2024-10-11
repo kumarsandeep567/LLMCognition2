@@ -876,6 +876,8 @@ def setup_tables() -> None:
                     time_consumed VARCHAR(255) DEFAULT NULL,
                     feedback TEXT NULL,
                     time_stamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    extraction_service varchar(50) DEFAULT NULL,
+                    marked_correct int(11) DEFAULT NULL,
                     FOREIGN KEY (user_id) REFERENCES users(user_id),
                     FOREIGN KEY (task_id) REFERENCES gaia_features(task_id)
                 );

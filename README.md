@@ -28,21 +28,20 @@ Deepthi Nasika       | 002474582 | 33%
 
 
 ## 1. Architecture Diagram - Airflow ETL Pipeline
+![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
+
 - Automate the data acquisition process for PDF files in the GAIA dataset
 - Processing list of PDF files from GAIA benchmarking validation & test datasets
 - Integrating it with the PDF Extractor tools either open source or API-based into the pipeline for efficient text extraction
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
-
 
 ## Architecture Diagram - Core Application
+![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
+
 - Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto S3 path
 - User Registration & Login functionality, API endpoints with JWT authentication tokens
 - User data with their credentials, hashed passwords are stored into the Database
 - All the APIs respective to services are created with authentication in FastAPI
 - User-friendly Streamlit application with Question Answering Interface
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
-
-
 
 ## Project Goals
 ### 1. Airflow Pipelines
@@ -125,35 +124,34 @@ Ensuring public accessibility of the deployed applications.
 [![Amazon RDS](https://img.shields.io/badge/Amazon%20RDS-527FFF?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com/rds/)
 
 
-
 ## Prerequisites
 Software Installations required for the project
 1. Python Environment
-A Python environment allows you to create isolated spaces for your Python projects, managing dependencies and versions separately.
+A Python environment allows you to create isolated spaces for your Python projects, managing dependencies and versions separately
 
-2. Libraries
-This assignment requires mutliple python libraries for data manipulation, API interactions, and web development like streamlit, huggingface_hub, pandas, matplotlib, mysql-connector-python.
-To download all the the required libraries for the project run the following command:
+2. Poetry Environment
+Poetry is a dependency management tool that helps you manage your Python packages and projects efficiently where a user can install all the dependencies onto pyproject.toml file
+
+3. Packages
+The project requires multiple packages for loading environment variables: python-dotenv, for loading files from hugging face: huggingface-hub, for connecting to MySQL database: mysql-connector-python, for file storage: google-cloud-storage, for extracting PDF contents from Azure AI Document Intelligence tool: azure-ai-formrecognizer, for extracting PDF contents from Adobe PDF Extract pdfservices-sdk, for extracting PDF contents with open source tool: pymupdf
 ```bash
 pip install -r requirements.txt
 ```
    
-3. Visual Studio Code
+4. Visual Studio Code
+An integrated development environment (IDE) that provides tools and features for coding, debugging, and version control.
 
-4. Docker
+5. Docker
  Docker allows you to package applications and their dependencies into containers, ensuring consistent environments across different platforms
 
-5. Google Cloud Platform
-Google Cloud Storage is used for efficient storage of files
-
-6. AWS
-AWS can be utilized for various cloud services, including storage (Amazon S3)
+6. Google Cloud Storage
+Google Cloud Storage is used for efficient storage of files. All the files loaded from Hugging Face are downloaded to GCS bucket. The extracted contents from the pdf files which are organized into seperate folders like CSV, JSON, Images are also stored into GCS bucket
 
 
 8. Streamlit
 Streamlit is an open-source app framework that allows you to create interactive web applications easily.
 
-9. MySQL Database
+9. Amazon RDS
 Relational database management system that allows you to store and manage data efficiently 
 
 ## Project Structure

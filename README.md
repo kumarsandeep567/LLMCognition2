@@ -62,21 +62,32 @@ Ramy Solanki         | 002816593 | 33% | JWT Implementation, DB Schema
 
 ### FastAPI
 #### 1. Objective
+- Provide a secure backend service to act as a mediator between the Streamlit application, Database service (AWS RDS), Cloud Storage Services (GCS Bucket), and OpenAI GPT-4o model, whilst implementing accurate authentication and authorization protocols, and providing responses in a streamlined JSON format
 
 #### 2. Tools
+- `fastapi[standard]` for building a standard FastAPI application
+- `python-multipart` for installing additional dependencies for FastAPI application
+- `mysql-connector-python` for interacting with any MySQL database, in this case, AWS Relational Database Service (RDS)
+- `PyJWT` for authenticating and authorizing users with JSON Web Tokens (JWT)
+- `google-auth` and `google-cloud-storage` for interacting with unstructured objects (like PDF documents) on the Google Cloud Storage
+- `openai` for prompting OpenAI's GPT-4o model
+- `tiktoken` for disintegrating prompts into tokens of known sizes
+
 
 #### 3. Output
+FastAPI provides a number of endpoints for interacting with the service:
+- `GET` - `/health` - To check if the FastAPI application is setup and running
+- `GET` - `/database` - To check if FastAPI can communicate with the database
+- `POST` - `/register` - To sign up new users to the service
+- `POST` - `/login` - To sign in existing users
+- `GET` - `/listprompts` - *Protected* - To fetch 'x' number of prompts of type 'type' from the database 
+- `GET` - `/loadprompt/{task_id}` - *Protected* - To load all information from the database regarding the given prompt 
+- `GET` - `/getannotation/{task_id}` - *Protected* - To load the annotation from the database regarding the given prompt
+- `POST` - `/querygpt` - *Protected* - To forward the question to OpenAI GPT4 and evaluate based on GAIA Benchmark
+- `GET` - `/feedback` - *Protected* - To save the user's feedback for GPT's response for the task_id
+- `POST` - `/markcorrect` - *Protected* - To mark the GPT's response as correct in case minor formatting issues occur
 
-Objective: Implement secure backend services and business logic.
-Features:
-User registration and login with JWT authentication.
-Protected API endpoints (except for registration and login).
-Integration with SQL database for user management.
-Implementation of business logic and services to be invoked by Streamlit.
-
-- Objective: The FastAPI application serves as an abstraction layer that hides all application processing, API calls to OpenAI, fetching data from MySQL database, downloading files from Google Cloud Storage Bucket.
-- Tools: MySQL database connector for interfacing with MySQL database, Google Cloud connector for downloading files from Google Cloud, OpenAI package for interacting with GPT (for text based content) and Whisper (for audio based content), tiktoken library for counting the number of tokens, PyPDF2 library for extracting content from PDF files, Base64 library for encoding images to text, openpyxl library for parsing MS Excel spreadsheets, docx library for parsing MS Word documents, dotenv library for setting environment variables, and json library for parsing json content.
-- Output: FastAPI ensures the response is always in a JSON format with HTTP status, message (response content), type (data type of response content), and additional fields (if needed)
+FastAPI ensures that every response is returned in a consistent JSON format with HTTP status, type (data type of the response content) message (response content), and additional fields if needed
 
 
 
@@ -210,47 +221,46 @@ Assignment2/
 ```
 
 ## How to run the application locally
-1. **Clone the Repository**: Clone the repository onto your local machine.
+1. **Clone the Repository**: Clone the repository onto your local machine and navigate to the directory within your terminal.
 
    ```bash
    git clone https://github.com/BigDataIA-Spring2024-Sec1-Team4/Assignment2
    ```
 
-2. **Create a Virtual Environment**: Set up a virtual environment to isolate project dependencies.
+2. **Install Docker**: Install docker and `docker compose` to run the application:
 
+   - For Windows, Mac OS, simply download and install Docker Desktop from the official website to install docker and `docker compose` 
+   [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+   - For Linux (Ubuntu based distributions), 
    ```bash
-   python -m venv venv
-   ```
+   # Add Docker's official GPG key:
+   sudo apt-get update
+   sudo apt-get install ca-certificates curl
+   sudo install -m 0755 -d /etc/apt/keyrings
+   sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+   sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-3. **Activate the Virtual Environment**: Activate the virtual environment.
+   # Add the repository to Apt sources:
+   echo \
+   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+   sudo apt-get update 
 
-   - **Windows**:
+   # Install packages for Docker
+   sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-     ```bash
-     venv\Scripts\activate
-     ```
+   # Check to see if docker is running 
+   sudo docker run hello-world
 
-   - **Unix or MacOS**:
-
-     ```bash
-     source venv/bin/activate
-     ```
-4. **Host Grobid Server**: Open Docker Desktop and host the Grobid server. (Run this in a separate terminal)
-
+3. **Run the application:** In the terminal within the directory, run 
    ```bash
-    cd PDF_Extraction
-    git clone https://github.com/kermitt2/grobid_client_python
-    cd grobid_client_python
-    python3 setup.py install
-    docker run -t --rm -p 8070:8070 lfoppiano/grobid:0.8.0
-   ```
+   docker-compose up
 
-5. **Run the Notebook Script**: Execute the `scheduler.py` python script to run the application. This step automates the process and runs all notebooks one after the other (Remember to add your .env files)
+   # To run with logging disabled, 
+   docker-compose up -d
 
-   ```bash
-   cd PDF_Extraction
-   python scheduler.py
-   ```
-
-By following these steps, you will be able to run the application locally from scratch. Ensure that Docker Desktop is installed and running before hosting the Grobid server.
-  
+4. In the browser, 
+   - visit `localhost:8501` to view the Streamlit application
+   - visit `localhost:8000/docs` to view the FastAPI endpoint docs

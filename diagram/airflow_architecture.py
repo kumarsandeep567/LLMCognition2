@@ -24,13 +24,16 @@ with Diagram("Airflow ETL Pipeline", show=False):
     fileLoader = Airflow("File Loader\n(Airflow Function)")
     fileParser = Airflow("File Parser\n(Airflow Function)")
     content_handler = Airflow("Content Handler\n(Airflow Function)")
-    setupTables = Airflow()
+    setupTables = Airflow("Setup Tables\n(Airflow Function)")
     extracted_contents = Custom("Extracted Contents", "./images/JSON_CSV_PNG.png")
     gcp_sql = RDS("AWS RDS\n(Text, JSON, \nUser data, Analytics)")
     gcp_storage = Storage("Google Cloud Storage Bucket\n(CSV, Images, Audio, Video)")
 
     # Define connections
     hugging_face_data >> Edge(color="black", style="solid") >> hugging_face_downloader 
+    fileLoader >> Edge(color="black", style="solid") >> gcp_storage
+    fileParser >> Edge(color="black", style="solid") >> gcp_storage
+    setupTables >> Edge(color="black", style="solid") >> gcp_sql
     hugging_face_downloader >> Edge(color="black", style="solid") >> pdf_docs 
     pdf_docs >> Edge(color="black", style="solid") >> content_handler
     content_handler >> Edge(color="black", style="solid") >> extracted_contents 

@@ -23,8 +23,9 @@ Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QF
 Name | NUID | Contribution% 
 --- | --- | --- |
 Sandeep Suresh Kumar | 002841297 | 33% 
-Gomathy Selvamuthiah | 002410534 | 33% 
 Deepthi Nasika       | 002474582 | 33% 
+Gomathy Selvamuthiah | 002410534 | 33% 
+Ramy Solanki         | 002474582 | 33% 
 
 
 ## 1. Architecture Diagram - Airflow ETL Pipeline
@@ -137,22 +138,21 @@ The project requires multiple packages for loading environment variables: python
 ```bash
 pip install -r requirements.txt
 ```
-   
+
 4. Visual Studio Code
 An integrated development environment (IDE) that provides tools and features for coding, debugging, and version control.
 
 5. Docker
- Docker allows you to package applications and their dependencies into containers, ensuring consistent environments across different platforms
+ Docker allows you to package applications and their dependencies into containers, ensuring consistent environments across different platforms. All the dependencies will be installed on docker-compose.yaml file with env file
 
 6. Google Cloud Storage
-Google Cloud Storage is used for efficient storage of files. All the files loaded from Hugging Face are downloaded to GCS bucket. The extracted contents from the pdf files which are organized into seperate folders like CSV, JSON, Images are also stored into GCS bucket
-
+Google Cloud Storage is used for efficient storage of files. All the files loaded from Hugging Face are downloaded to GCS bucket. The extracted contents from the pdf files by all the 3 different PDF Extractor tools like PyMuPDF, Adobe PDF Extract, Azure AI Document Intelligence Tool which are organized into seperate folders like CSV, JSON, Images are also stored into GCS bucket
 
 8. Streamlit
 Streamlit is an open-source app framework that allows you to create interactive web applications easily.
 
 9. Amazon RDS
-Relational database management system that allows you to store and manage data efficiently 
+Amazon RDS is a managed relational database service that makes it easy to set up, operate, and scale a relational database in the cloud. Supports multiple database engines including MySQL, PostgreSQL, Oracle, and SQL Server. 
 
 ## Project Structure
 ```

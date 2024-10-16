@@ -1,7 +1,6 @@
-
-# Assignment 2
-## OpenAI Model Evaluation Tool with PDF Extraction
-An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
+# LLM Cognition 2
+An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer) \
+*This project is an extension of LLM Cognition available [here](https://github.com/kumarsandeep567/LLMCognition)*
 
 ## Live Application Link
 - Streamlit application link: http://18.117.79.65:8501/
@@ -15,15 +14,14 @@ Demo Link: https://youtu.be/advkI-5NLoQ
 
 
 
-## Attestation and Team Contribution
-**WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK**
+## Contributions
 
-Name | NUID | Contribution% | Work_Contributed
---- | --- | --- | --- |
-Sandeep Suresh Kumar | 002841297 | 33% | PyMuPDF Extractor Tool, FastAPI, Dockerization
-Deepthi Nasika       | 002474582 | 33% | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup
-Gomathy Selvamuthiah | 002410534 | 33% | Adobe PDF Extractor Tool, Streamlit, Documentation
-Ramy Solanki         | 002816593 | 33% | JWT Implementation, DB Schema
+Name | Contribution | GitHub URL
+--- | --- | --- 
+Sandeep Suresh Kumar | PyMuPDF Extractor Tool (with Airflow), FastAPI, Dockerization, Deployment | [View Profile](https://github.com/kumarsandeep567)
+Deepthi Nasika       | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup | [View Profile](https://github.com/Deepthi-Nasika)
+Gomathy Selvamuthiah | Adobe PDF Extractor Tool, Streamlit, Documentation | [View Profile](https://github.com/GomathySelvamuthiah)
+Ramy Solanki         | JWT Implementation, DB Schema | [View Profile](https://github.com/solankiram2023)
 
 ## Problem Statement
 As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:

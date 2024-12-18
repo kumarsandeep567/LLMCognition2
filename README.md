@@ -1,27 +1,10 @@
 # LLM Cognition 2
-An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer) \
+An interactive application built using Streamlit to evaluate the performance of OpenAI GPT Model against the HuggingFace's GAIA(General AI Assistant) dataset. The application extracts content from the PDF files in the GAIA dataset, processes the information, and sends it to assess GPT's ability to provide accurate answers based on the given context of pdf file and annotation metadata (steps to get the correct answer)
+
 *This project is an extension of LLM Cognition available [here](https://github.com/kumarsandeep567/LLMCognition)*
 
-## Live Application Link
-- Streamlit application link: http://18.117.79.65:8501/
-- FastAPI: http://18.117.79.65:8000/health
-
-## Codelabs Link
-Codelabs documentation link: https://codelabs-preview.appspot.com/?file_id=1f3QFkZMXISlCaRTayBB-mjnfm00do8oNYWJC9lTWMXw#8
-
-## **Video of Submission**
-Demo Link: https://youtu.be/advkI-5NLoQ
-
-
-
-## Contributions
-
-Name | Contribution | GitHub URL
---- | --- | --- 
-Sandeep Suresh Kumar | PyMuPDF Extractor Tool (with Airflow), FastAPI, Dockerization, Deployment | [View Profile](https://github.com/kumarsandeep567)
-Deepthi Nasika       | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup | [View Profile](https://github.com/Deepthi-Nasika)
-Gomathy Selvamuthiah | Adobe PDF Extractor Tool, Streamlit, Documentation | [View Profile](https://github.com/GomathySelvamuthiah)
-Ramy Solanki         | JWT Implementation, DB Schema | [View Profile](https://github.com/solankiram2023)
+## **Application Demo**
+View on YouTube: https://youtu.be/advkI-5NLoQ
 
 ## Problem Statement
 As Large Language Models (LLMs) like GPT become increasingly prevalent in various applications, it's crucial to assess their performance accurately, especially in specialized domains. The GAIA dataset provides a benchmark for evaluating AI assistants across diverse tasks. This project aims to create a comprehensive tool that allows researchers and developers to evaluate the comprehension capabilities of LLM, specifically OpenAI's GPT-4o. The application primarily focuses on:
@@ -34,14 +17,14 @@ As Large Language Models (LLMs) like GPT become increasingly prevalent in variou
 
 ## Architecture Diagram
 ### 1. Airflow ETL Pipeline
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/airflow_etl_pipeline.png)
+![Architecture Diagram](https://github.com/kumarsandeep567/LLMCognition2/blob/main/diagram/airflow_etl_pipeline.png)
 
 - Automate the data acquisition process for PDF files in the GAIA dataset
 - Processing list of PDF files from GAIA benchmarking validation & test datasets
 - Integrating it with the PDF Extractor tools either open source or API-based into the pipeline for efficient text extraction
 
 ### 2. Core Application
-![Architecture Diagram](https://github.com/BigDataIA-Fall2024-TeamB6/Assignment2/blob/airflow/diagram/core_application_service.png)
+![Architecture Diagram](https://github.com/kumarsandeep567/LLMCognition2/blob/main/diagram/core_application_service.png)
 
 - Airflow  pipeline streamlining the process of retrieving & processing documents, ensuring the extracted information is stored securely in the cloud Database and files are structurally formatted and stored onto the S3 path
 - User Registration & Login functionality, API endpoints with JWT authentication tokens
@@ -268,3 +251,14 @@ Assignment2/
 4. In the browser, 
    - visit `localhost:8501` to view the Streamlit application
    - visit `localhost:8000/docs` to view the FastAPI endpoint docs
+
+
+## Contributions
+- This project was made possible by the following contributors:
+
+Name | Contribution 
+---  | --- 
+Sandeep Kumar                                                                | PyMuPDF Extractor Tool (with Airflow), FastAPI, Dockerization, Deployment
+Deepthi Nasika [(View Profile)](https://github.com/Deepthi-Nasika)             | Azure PDF Extractor Tool, Streamlit, Airflow Pipeline Setup
+Gomathy Selvamuthiah [(View Profile)](https://github.com/GomathySelvamuthiah)  | Adobe PDF Extractor Tool, Streamlit, Documentation | 
+Ramy Solanki [(View Profile)](https://github.com/solankiram2023)               | JWT Implementation, DB Schema
